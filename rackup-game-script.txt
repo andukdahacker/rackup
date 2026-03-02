@@ -1,0 +1,354 @@
+========================================================
+  RACKUP - Manual Game Script
+  Print this out or pull it up on one phone.
+  One person is the Referee. They run the game.
+========================================================
+
+
+BEFORE YOU START
+----------------
+1. Pick a REFEREE (they manage turns, read cards, track scores)
+2. Everyone writes their name on the SCORE SHEET at the bottom
+3. Each player secretly writes ONE custom punishment on a scrap
+   of paper. Fold them up and toss them in a pile.
+4. Pick your MODE (see below)
+5. Decide on rounds: 5 (quick), 10 (standard), or 15 (marathon)
+6. Play real pool. The script just adds chaos on top.
+
+
+========================================================
+SCORE SHEET (copy onto paper or use a napkin)
+========================================================
+
+  Player          | Rd1 | Rd2 | Rd3 | Rd4 | Rd5 | Rd6 | Rd7 | Rd8 | Rd9 | Rd10 | TOTAL
+  ----------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|------|------
+                  |     |     |     |     |     |     |     |     |     |      |
+                  |     |     |     |     |     |     |     |     |     |      |
+                  |     |     |     |     |     |     |     |     |     |      |
+                  |     |     |     |     |     |     |     |     |     |      |
+                  |     |     |     |     |     |     |     |     |     |      |
+                  |     |     |     |     |     |     |     |     |     |      |
+
+  Streak tracker: put a tally next to their name for consecutive makes.
+  Reset to 0 on a miss.
+
+
+========================================================
+MODE 1: PARTY MODE
+"Real pool + chaos layer"
+========================================================
+
+EVERY TURN:
+  1. Referee announces whose turn it is
+  2. MISSION CHECK: Roll a die or flip a coin.
+     - Die: 1 or 2 = secret mission (see mission list below)
+     - Coin: heads = secret mission
+     Whisper the mission ONLY to the shooter.
+  3. Player shoots for real
+  4. IF MADE:
+     - +3 points base
+     - Streak 2 = +1 bonus (4 total)
+     - Streak 3 = +2 bonus (5 total) - announce "ON FIRE!"
+     - Streak 4+ = +3 bonus (6 total) - announce "UNSTOPPABLE!"
+     - If secret mission was completed, bonus points (see list)
+  5. IF MISSED:
+     - Streak resets to 0
+     - Flip a coin: heads = they get an ITEM (see item list)
+     - Draw a PUNISHMENT (see punishment list)
+       * Rounds 1-3: use MILD punishments
+       * Rounds 4-7: use MEDIUM punishments
+       * Rounds 8+: use SPICY punishments
+       * Randomly pull from the custom punishment pile too
+  6. Update the leaderboard, announce standings dramatically
+
+FINAL 3 ROUNDS: All points are TRIPLED! Announce this loudly.
+
+
+========================================================
+MODE 2: TOTAL CHAOS
+"The app controls everything. The table is just a prop."
+========================================================
+
+EVERY TURN:
+  1. Referee announces whose turn it is
+  2. Referee picks a random CHAOS COMMAND (see list below).
+     Read it out loud. The player MUST follow it.
+  3. Also give them a random SECRET MISSION (see list)
+  4. Player shoots under those conditions
+  5. IF MADE:
+     - Referee picks a random number 3-8. That's their points.
+       (Chaos = random scoring!)
+     - If mission completed too, add mission bonus
+  6. IF MISSED - Referee picks ONE at random:
+     - "SCORE SCRAMBLE!" - Pick a random number between 0 and
+       their current score. That's their new score.
+     - "POINT TRANSFER!" - They give 3 points to the player
+       on their left
+     - "PUNISHMENT TIME!" - Draw a punishment
+     - "LUCKY MISS!" - They get 2 points anyway
+     - "ITEM DROP!" - They get an item from the item list
+     - "NOTHING!" - The chaos gods show mercy
+  7. CHAOS EVENT (every 5th turn or whenever referee feels like it):
+     - "SCORE SWAP!" - Highest and lowest players swap scores
+     - "EVERYONE DRINK!" - Universal punishment
+     - "DOUBLE NEXT!" - Next shot is worth double for everyone
+     - "ITEM SHUFFLE!" - Everyone passes items to the left
+
+
+========================================================
+MODE 3: SABOTEUR
+"One player secretly tries to lose"
+========================================================
+
+SETUP:
+  - Fold up small papers: one says "SABOTEUR", rest say "INNOCENT"
+  - Each player draws one secretly. DO NOT REVEAL.
+  - The saboteur's goal: finish in the BOTTOM HALF of scores
+    without getting caught
+
+EVERY TURN:
+  - Play like Party Mode (missions, items, punishments, scoring)
+  - The saboteur must subtly play badly without being obvious
+
+SUSPICION VOTE (every 3 rounds):
+  1. Referee announces: "SUSPICION VOTE!"
+  2. Everyone closes their eyes
+  3. Referee says "Point at who you think is the saboteur"
+  4. Everyone opens eyes. Count votes. Announce most suspected.
+  5. No elimination yet - just building tension
+
+EMERGENCY MEETING (can only happen ONCE per game):
+  1. Any player can yell "EMERGENCY MEETING!"
+  2. 60 seconds of open debate
+  3. The accuser names their suspect
+  4. Everyone votes: GUILTY or INNOCENT
+  5. If majority guilty:
+     - Correct? Accuser gets +15 points! Saboteur revealed!
+     - Wrong? Accuser LOSES 10 points. Game continues.
+  6. If majority innocent: meeting fails, game continues
+
+END OF GAME:
+  - Saboteur reveals themselves
+  - If saboteur is in bottom half of scores: they WIN
+    (even if someone else has more points!)
+  - If saboteur is in top half: they were caught playing too well
+
+
+========================================================
+MODE 4: LOSER'S LEAGUE
+"Everyone tries to MISS. Vote on who's faking."
+========================================================
+
+THE TWIST: You WANT to miss. But it has to look convincing.
+
+EVERY TURN:
+  1. Player takes their shot, "trying their best" (wink wink)
+  2. IF THEY ACCIDENTALLY MAKE IT:
+     - -3 points (making is BAD!)
+     - Plus a punishment from the list
+  3. IF THEY MISS:
+     - Everyone votes: "CONVINCING" or "FAKING?"
+     - If majority says CONVINCING:
+       +3 points, plus +1 per convincing vote
+     - If majority says FAKING:
+       0 points and a punishment!
+  4. Update scores
+
+SUGGESTED EXCUSES (read one to the player before their shot):
+  - "I was going for the bank shot..."
+  - "The table is uneven!"
+  - "Someone bumped me"
+  - "I'm just warming up"
+  - "That was my practice stroke!"
+  - "This cue is warped"
+  - "The chalk was bad"
+  - "I sneezed internally"
+
+
+========================================================
+MODE 5: TEAM MODE
+"Shared scores, shared glory, shared punishment"
+========================================================
+
+SETUP:
+  - Split into 2 teams randomly (draw cards, odd/even, whatever)
+  - Team scores = sum of all individual scores on that team
+
+EVERY TURN:
+  - Play like Party Mode but track team totals
+  - On a miss, flip a coin:
+    * Heads = TEAM PUNISHMENT (entire team does it!)
+    * Tails = just that player gets punished
+  - Secret missions benefit the whole team
+    (each teammate gets half the bonus points, rounded up)
+
+TEAM ITEM SHARING:
+  - Players can gift items to teammates on their turn
+  - Items used against opponents affect individual players
+
+
+========================================================
+MODE 6: QUICK ROUND
+"5 rounds. That's it. Go fast."
+========================================================
+
+  - Always 5 rounds, no negotiation
+  - No items, no missions, no chaos events
+  - Just shoot and score:
+    * Made = +5 points x current streak
+      (1st make = 5, 2nd in a row = 10, 3rd = 15, etc.)
+    * Miss = streak resets + a MILD punishment
+  - Streaks are EVERYTHING in this mode
+  - Fastest to play, perfect for "one more game" at last call
+
+
+========================================================
+REFERENCE LISTS
+========================================================
+
+
+--- SECRET MISSIONS ---
+(Whisper to the shooter. Bonus points if completed.)
+
+  Mission               | Task                                           | Bonus
+  ----------------------|------------------------------------------------|------
+  Bank Shot Artist      | Make a bank shot                               | +5
+  Combo King            | Sink 2 balls in one turn                       | +8
+  Called It             | Call your pocket before shooting                | +3
+  Lefty/Righty         | Shoot with your non-dominant hand and make it  | +7
+  Speed Demon           | Shoot within 5 seconds of stepping up          | +4
+  Behind the Back       | Attempt a behind-the-back shot                 | +6
+  No Look               | Look away after hitting the cue ball           | +5
+  Jump Shot             | Attempt a jump shot (even if you miss)         | +3
+  Trash Talker          | Convincingly trash talk before your shot       | +2
+  The Whisper           | Whisper your shot call so only ref hears       | +3
+  One-Handed            | Shoot without a bridge hand                    | +5
+  Eyes Closed           | Close your eyes before making contact          | +6
+  Storyteller           | Tell a 10-second story while shooting          | +4
+  The Distractor        | Make someone laugh during YOUR shot            | +3
+  Long Range            | Shoot from the far end of the table            | +5
+
+
+--- ITEMS ---
+(Write these on scraps of paper, draw from a hat)
+
+  Item             | Effect
+  -----------------|--------------------------------------------------
+  Blue Shell       | Target 1st place! They shoot off-handed next turn
+                   | AND lose 3 points
+  Shield           | Block the next punishment or item against you
+  Score Steal      | Steal 5 points from any player
+  Streak Breaker   | Reset another player's streak to 0
+  Double Up        | Next made shot is worth double
+  Trap Card        | Next player to miss does YOUR punishment
+  Reverse          | Swap your score with any other player
+  Immunity         | Skip your next punishment
+  Mulligan         | Redo your last shot (group votes to allow)
+  Wildcard         | Invent any rule that lasts 3 turns
+
+  ITEM RULES:
+  - Max 2 items at a time. Discard one to pick up a new one.
+  - Worse players get better items (rubber banding):
+    * Last place: draw 2, keep the better one
+    * Middle: draw 1
+    * First place: draw 1 from a weaker pile (no Blue Shell)
+
+
+--- PUNISHMENTS ---
+
+  MILD (Rounds 1-3):
+  [ ] Take a sip of your drink
+  [ ] Compliment the person to your left
+  [ ] Do your best impression of someone in the group
+  [ ] Text the 5th person in your recents "I miss you"
+  [ ] Speak in an accent for the next 2 turns
+  [ ] Group picks a song, you dance for 10 seconds
+  [ ] Give your phone to someone for 1 turn (they post 1 story)
+  [ ] Say something nice about every player
+
+  MEDIUM (Rounds 4-7):
+  [ ] Shoot next turn with your eyes closed
+  [ ] Group chooses your next drink order
+  [ ] Call someone and sing happy birthday
+  [ ] Do 10 pushups right now
+  [ ] Shoot off-handed for 2 turns
+  [ ] Let someone draw on your arm with a pen
+  [ ] Speak only in questions for 3 turns
+  [ ] Swap shirts with someone for the rest of the game
+  [ ] Hold cue like guitar, play a solo before next shot
+  [ ] Left-hand only for the rest of the round
+
+  SPICY (Rounds 8+):
+  [ ] Read your last 3 sent texts out loud
+  [ ] Group composes and sends ONE text from your phone
+  [ ] Post a selfie with a caption the group writes
+  [ ] Call your most recent ex, ask about their day (speaker!)
+  [ ] Karaoke one verse of the group's choice
+  [ ] Group gets 15 seconds in your camera roll
+  [ ] Venmo the current leader $1
+  [ ] Worst player gives you a hairstyle for the night
+
+  CUSTOM: Also shuffle in the punishments everyone wrote at
+  the start! Pull from the custom pile whenever you want.
+
+
+--- CHAOS COMMANDS (Total Chaos mode only) ---
+  - SPEED ROUND: 5 seconds per shot, go go go!
+  - MIRROR MATCH: Everyone shoots opposite-handed this round
+  - SILENT ROUND: No talking, gestures only
+  - BLINDFOLD: Close your eyes, another player aims for you
+  - DOUBLE OR NOTHING: Hit = double points, miss = lose 5
+  - CROWD CONTROL: Others vote which pocket you must aim for
+  - MUSICAL CHAIRS: Rotate and inherit the next person's score!
+  - BOUNTY: First to sink a ball gets 10 bonus points
+  - THE FLOOR IS LAVA: Shoot without both feet on the ground
+  - COMMENTARY: Player to your right narrates like a sportscaster
+  - SLOW MOTION: Shoot and react in slow-mo, group judges it
+  - TRICK SHOT: Must attempt a trick shot, group votes if it counts
+  - ALLIANCE: Secretly pick a partner, both make = double points
+  - CONFESSION: Confess something before your shot for bonus points
+  - REMIX: Referee swaps two random players' scores!
+  - RULE BREAK: Shooter invents 1 rule lasting 2 turns
+
+
+========================================================
+POST-GAME CEREMONY
+========================================================
+
+When the final round is done, the referee announces:
+
+  1. "GAME OVER!" (dramatic pause)
+  2. Read final scores from bottom to top
+  3. Announce the podium: 3rd, 2nd, 1st with dramatic pauses
+
+  AWARDS (pick all that apply):
+  - MVP: Highest score
+  - Sharpshooter: Best accuracy (makes / total shots)
+  - Punching Bag: Most punishments received
+  - Participant Trophy: Lowest score
+  - Hot Hand: Longest streak of the night
+  - Mission Master: Most missions completed
+  - (Saboteur mode) Sneakiest: Saboteur, if they won
+
+  4. Everyone roasts the Participant Trophy holder
+  5. Winner picks the next game mode
+
+
+========================================================
+TIPS FOR THE REFEREE
+========================================================
+
+  - Be dramatic. Announce everything like a wrestling announcer.
+  - Enforce punishments. No chickening out.
+  - Escalate the spice level as the night goes on.
+  - If the game drags, announce "SUDDEN DEATH: triple points!"
+  - Keep the energy up between turns - trash talk is encouraged.
+  - The ref gets to play too! Just have someone else ref your turn.
+  - For missions: use the Notes app to text the player privately,
+    or whisper it, or write it on a napkin and hand it to them.
+  - For items: write them on scraps of paper and put them in a hat.
+    Players draw from the hat when they earn one.
+
+========================================================
+  That's it. Rack 'em up. Have fun.
+========================================================

@@ -1,0 +1,55 @@
+RACKUP - Turn Bar Games Into Absolute Chaos
+=============================================
+
+Think Kahoot meets Mario Kart... but for pool night.
+
+THE IDEA
+--------
+RackUp is a party app that turns a regular game of pool into
+a hilarious, competitive, unforgettable experience. Everyone
+joins a room on their phone. You play real pool, but the app
+layers on missions, power-ups, punishments, and pure chaos.
+
+HOW IT WORKS
+------------
+1. One person creates a room, everyone else joins with a code
+2. You play pool like normal, but after each shot the app:
+   - Assigns secret missions ("bank shot for double points")
+   - Drops Mario Kart-style items (blue shells, immunity, traps)
+   - Triggers punishments that escalate through the night
+   - Updates a dramatic leaderboard with animations
+3. Losing is actually fun - worse players get better items
+   and the funniest punishments
+
+GAME MODES
+----------
+PARTY MODE     Real pool rules + social chaos on top
+TOTAL CHAOS    The app controls EVERYTHING. The table is just a prop.
+SABOTEUR       One player secretly tries to lose without getting caught
+LOSER'S LEAGUE Everyone tries to MISS. Vote on who's faking it.
+TEAM MODE      3v3 or 4v4 with shared items and team punishments
+QUICK ROUND    5-minute blitz, perfect for end of night
+
+THE VIBE
+--------
+- Bad at pool? You'll have the BEST time. Blue shells target
+  first place. Every miss gives you a random item. The worse
+  you play, the more chaos you cause.
+- Secret missions give you private objectives nobody else sees
+- Punishments escalate: mild early, nuclear by last call
+- Everyone submits custom punishments before the game starts
+- AI trash talk commentator roasts everyone based on performance
+- Post-game report card: MVP, worst shot, most embarrassing moment
+
+WHY IT'S DIFFERENT
+------------------
+Pool apps today = boring training tools for serious players.
+RackUp = the reason your friend group goes out every week.
+
+Not just pool either. Darts, ping pong, beer pong, cornhole -
+any bar game becomes a RackUp game.
+
+"The Jackbox of real-world bar games."
+
+---
+Want to try it? Run the prototype script and see for yourself.
