@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RackUp - Design Direction Mockups</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap');
+
+  :root {
+    --base: #0F0E1A;
+    --tier-lobby: #1A1832;
+    --tier-mild: #0D2B3E;
+    --tier-medium: #3D2008;
+    --tier-spicy: #3D0A0A;
+    --green: #22C55E;
+    --red: #EF4444;
+    --gold: #FFD700;
+    --blue: #3B82F6;
+    --purple: #A855F7;
+    --text: #F0EDF6;
+    --muted: #8B85A1;
+    --p1: #FF6B6B;
+    --p2: #4ECDC4;
+    --p3: #FFB347;
+    --p4: #9B59B6;
+    --p5: #A8E06C;
+    --p6: #74B9FF;
+    --p7: #FD79A8;
+    --p8: #55E6C1;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #080812;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* --- NAV --- */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(15,14,26,0.95); backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(240,237,246,0.1);
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .nav h1 { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 20px; color: var(--gold); }
+  .nav-btn {
+    background: rgba(240,237,246,0.08); border: 1px solid rgba(240,237,246,0.15);
+    color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer;
+    font-family: 'Barlow', sans-serif; font-size: 13px; transition: all 0.2s;
+  }
+  .nav-btn:hover, .nav-btn.active { background: var(--blue); border-color: var(--blue); }
+  .nav-desc { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+  /* --- PHONE FRAME --- */
+  .phone-grid {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 32px;
+    padding: 80px 24px 48px;
+  }
+  .phone-col { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .phone-label {
+    font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 2px;
+  }
+  .phone {
+    width: 320px; height: 640px; border-radius: 32px; overflow: hidden;
+    border: 3px solid rgba(240,237,246,0.15); position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .phone-screen {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    transition: background-color 0.5s ease;
+  }
+
+  /* --- SECTION HEADERS --- */
+  .section-header {
+    text-align: center; padding: 48px 24px 24px;
+  }
+  .section-header h2 {
+    font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 36px;
+    background: linear-gradient(135deg, var(--gold), var(--p3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .section-header p { color: var(--muted); font-size: 14px; margin-top: 8px; max-width: 600px; margin-inline: auto; }
+  .section-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(240,237,246,0.1), transparent); margin: 24px 0; }
+
+  /* --- COMMON SCREEN PARTS --- */
+  .status-bar {
+    height: 52px; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(240,237,246,0.06);
+  }
+  .progress-bar { flex: 1; height: 4px; background: rgba(240,237,246,0.1); border-radius: 2px; margin: 0 12px; }
+  .progress-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+  .tier-tag {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 11px;
+    padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .round-label { font-family: 'Barlow', sans-serif; font-size: 12px; color: var(--muted); }
+
+  /* --- PLAYER TAG --- */
+  .player-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .player-shape {
+    width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .shape-circle { border-radius: 50%; }
+  .shape-square { border-radius: 2px; }
+  .shape-triangle { width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 14px solid; }
+  .shape-diamond { transform: rotate(45deg); border-radius: 2px; width: 12px; height: 12px; }
+  .player-name { font-family: 'Oswald', sans-serif; font-weight: 600; }
+
+  /* --- BIG BUTTONS --- */
+  .big-btn {
+    flex: 1; border: none; border-radius: 12px; cursor: pointer;
+    font-family: 'Oswald', sans-serif; font-weight: 700; color: white;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.1s, filter 0.1s; text-transform: uppercase; letter-spacing: 2px;
+  }
+  .big-btn:active { transform: scale(0.97); filter: brightness(0.9); }
+  .btn-made { background: linear-gradient(180deg, #22C55E, #16A34A); }
+  .btn-missed { background: linear-gradient(180deg, #EF4444, #DC2626); }
+
+  /* --- LEADERBOARD --- */
+  .lb-entry {
+    display: flex; align-items: center; padding: 8px 12px; gap: 10px;
+    border-radius: 8px; transition: all 0.3s;
+  }
+  .lb-entry:hover { background: rgba(240,237,246,0.04); }
+  .lb-rank {
+    font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px;
+    width: 28px; text-align: center;
+  }
+  .lb-score {
+    font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 18px;
+    margin-left: auto;
+  }
+  .lb-streak {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 10px;
+    padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+  }
+
+  /* --- ITEM CARD --- */
+  .item-card {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: rgba(15,14,26,0.8); border: 2px solid var(--blue); border-radius: 10px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .item-card:hover { border-color: var(--gold); transform: scale(1.02); }
+  .item-icon {
+    width: 36px; height: 36px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; font-size: 18px;
+  }
+  .item-name { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px; }
+  .item-action { font-size: 10px; color: var(--muted); font-family: 'Barlow', sans-serif; }
+
+  /* --- PUNISHMENT REVEAL --- */
+  .punishment-frame {
+    padding: 20px; text-align: center; border-radius: 12px; position: relative;
+    border: 1px solid rgba(240,237,246,0.1);
+  }
+  .punishment-header {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 11px;
+    color: var(--gold); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 12px;
+  }
+  .punishment-text {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 20px;
+    line-height: 1.3;
+  }
+
+  /* --- REPORT CARD --- */
+  .report-card {
+    width: 280px; border-radius: 16px; overflow: hidden; position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .rc-header {
+    padding: 24px 20px 16px; text-align: center; position: relative;
+  }
+  .rc-title {
+    font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 28px;
+    color: var(--gold);
+  }
+  .rc-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .slash-line {
+    position: absolute; width: 200%; height: 2px; transform: rotate(-15deg);
+    transform-origin: left center;
+  }
+  .rc-awards { padding: 8px 16px 20px; }
+  .rc-award {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid rgba(240,237,246,0.06);
+  }
+  .rc-award:last-child { border-bottom: none; }
+  .rc-award-icon { font-size: 20px; width: 32px; text-align: center; }
+  .rc-award-title { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 13px; }
+  .rc-award-player { font-size: 12px; color: var(--muted); }
+  .rc-share-btn {
+    display: block; width: calc(100% - 32px); margin: 0 16px 16px; padding: 12px;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    border: none; border-radius: 10px; color: white; cursor: pointer;
+    font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 16px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  /* --- DIAGONAL SLASH DECORATION --- */
+  .slash-bg {
+    position: absolute; width: 150%; height: 3px; opacity: 0.08;
+    background: var(--gold); transform: rotate(-12deg);
+  }
+
+  /* --- TIER DEMO --- */
+  .tier-demo {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 16px;
+    padding: 0 24px 48px;
+  }
+  .tier-swatch {
+    width: 140px; padding: 20px 16px; border-radius: 12px; text-align: center;
+    border: 1px solid rgba(240,237,246,0.1); transition: all 0.3s; cursor: pointer;
+  }
+  .tier-swatch:hover { transform: scale(1.05); border-color: rgba(240,237,246,0.3); }
+  .tier-swatch-label { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px; margin-top: 8px; }
+  .tier-swatch-hex { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'Barlow', sans-serif; }
+
+  /* --- EVENT FEED --- */
+  .event-item {
+    padding: 6px 12px; font-size: 13px; border-left: 3px solid;
+    margin-bottom: 4px; border-radius: 0 6px 6px 0;
+    background: rgba(240,237,246,0.03);
+  }
+
+  /* --- LOBBY --- */
+  .lobby-player {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-radius: 8px; background: rgba(240,237,246,0.03);
+    margin-bottom: 6px; animation: slideIn 0.3s ease-out;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+  .lobby-status { font-size: 11px; margin-left: auto; }
+  .punishment-input {
+    width: 100%; padding: 10px 14px; background: rgba(240,237,246,0.06);
+    border: 1px solid rgba(240,237,246,0.15); border-radius: 8px;
+    color: var(--text); font-family: 'Barlow', sans-serif; font-size: 14px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .punishment-input:focus { border-color: var(--blue); }
+  .punishment-input::placeholder { color: var(--muted); }
+  .random-btn {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+    background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3);
+    border-radius: 6px; color: var(--purple); font-size: 12px; cursor: pointer;
+    font-family: 'Barlow', sans-serif; margin-top: 6px;
+  }
+
+  /* --- SLIDE START --- */
+  .slide-start {
+    position: relative; height: 52px; background: rgba(240,237,246,0.06);
+    border-radius: 26px; overflow: hidden; cursor: pointer;
+    border: 1px solid rgba(240,237,246,0.1);
+  }
+  .slide-track {
+    position: absolute; top: 4px; left: 4px; width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--green), #16A34A);
+    border-radius: 22px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; transition: left 0.3s;
+  }
+  .slide-text {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 2px;
+  }
+
+  /* --- ROLE REVEAL --- */
+  .role-reveal {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; text-align: center; padding: 32px;
+  }
+  .role-reveal-title {
+    font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 42px;
+    line-height: 1.1; margin-bottom: 16px;
+  }
+  .role-reveal-sub {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 18px;
+    color: var(--muted);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .phone-grid { gap: 24px; }
+    .phone { width: 280px; height: 560px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <h1>RACKUP</h1>
+  <button class="nav-btn active" onclick="scrollToSection('tiers')">Color Tiers</button>
+  <button class="nav-btn" onclick="scrollToSection('referee')">Referee Screens</button>
+  <button class="nav-btn" onclick="scrollToSection('player')">Player Screens</button>
+  <button class="nav-btn" onclick="scrollToSection('lobby')">Lobby</button>
+  <button class="nav-btn" onclick="scrollToSection('cascade')">Cascade Moments</button>
+  <button class="nav-btn" onclick="scrollToSection('report')">Report Card</button>
+  <button class="nav-btn" onclick="scrollToSection('items')">Items</button>
+  <span class="nav-desc">Design Direction: "Game Show at the Bar"</span>
+</div>
+
+<!-- ==================== COLOR TIERS ==================== -->
+<div id="tiers">
+  <div class="section-header" style="padding-top: 80px;">
+    <h2>ESCALATION PALETTE</h2>
+    <p>4 discrete color stops that shift the mood as the game intensifies. Each tier transition is a noticeable moment — a 500ms crossfade that the whole table feels.</p>
+  </div>
+  <div class="tier-demo">
+    <div class="tier-swatch" style="background: #1A1832;">
+      <div class="tier-tag" style="background: rgba(240,237,246,0.1); color: var(--muted);">PRE-GAME</div>
+      <div class="tier-swatch-label">Lobby</div>
+      <div class="tier-swatch-hex">#1A1832</div>
+    </div>
+    <div class="tier-swatch" style="background: #0D2B3E;">
+      <div class="tier-tag" style="background: rgba(78,205,196,0.2); color: var(--p2);">MILD</div>
+      <div class="tier-swatch-label">0-30%</div>
+      <div class="tier-swatch-hex">#0D2B3E</div>
+    </div>
+    <div class="tier-swatch" style="background: #3D2008;">
+      <div class="tier-tag" style="background: rgba(255,179,71,0.2); color: var(--p3);">MEDIUM</div>
+      <div class="tier-swatch-label">30-70%</div>
+      <div class="tier-swatch-hex">#3D2008</div>
+    </div>
+    <div class="tier-swatch" style="background: #3D0A0A;">
+      <div class="tier-tag" style="background: rgba(239,68,68,0.2); color: var(--red);">SPICY</div>
+      <div class="tier-swatch-label">70-100%</div>
+      <div class="tier-swatch-hex">#3D0A0A</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ==================== REFEREE SCREENS ==================== -->
+<div id="referee">
+  <div class="section-header">
+    <h2>REFEREE COMMAND CENTER</h2>
+    <p>The #1 design priority. Three variations exploring density, visual weight, and how the MADE/MISSED buttons dominate the action zone.</p>
+  </div>
+
+  <div class="phone-grid">
+    <!-- Referee V1: Bold Stacked -->
+    <div class="phone-col">
+      <span class="phone-label">V1 — Bold Stacked</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-mild);">
+          <div class="status-bar">
+            <div class="tier-tag" style="background: rgba(78,205,196,0.2); color: var(--p2);">MILD</div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 25%; background: var(--p2);"></div></div>
+            <span class="round-label">R3/10</span>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; padding: 16px;">
+            <div style="text-align: center; margin-bottom: 4px; color: var(--muted); font-size: 12px; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 2px;">Now Shooting</div>
+            <div style="text-align: center; margin-bottom: 16px;">
+              <span style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 42px; color: var(--p1);">DANNY</span>
+            </div>
+            <div style="background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.2); border-radius: 10px; padding: 12px; margin-bottom: 16px;">
+              <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 11px; color: var(--purple); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Secret Mission</div>
+              <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 16px;">Shoot with your eyes closed +6</div>
+              <button style="margin-top: 8px; padding: 6px 14px; background: var(--purple); border: none; border-radius: 6px; color: white; font-family: 'Barlow', sans-serif; font-size: 12px; cursor: pointer;">Mission Delivered</button>
+            </div>
+            <div style="flex: 1;"></div>
+            <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+              <button class="big-btn btn-made" style="height: 100px; font-size: 28px;">MADE</button>
+              <button class="big-btn btn-missed" style="height: 100px; font-size: 28px;">MISSED</button>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 4px;">
+              <div style="display: flex; gap: 12px; font-family: 'Barlow', sans-serif; font-size: 12px; color: var(--muted);">
+                <span>1. Jake <span style="color: var(--text);">18</span></span>
+                <span>2. Maya <span style="color: var(--text);">15</span></span>
+                <span>3. Danny <span style="color: var(--text);">6</span></span>
+              </div>
+              <div class="item-card" style="padding: 4px 8px; border-width: 1px;">
+                <span style="font-size: 14px;">&#127776;</span>
+                <span class="item-name" style="font-size: 11px;">Blue Shell</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Referee V2: Cinematic -->
+    <div class="phone-col">
+      <span class="phone-label">V2 — Cinematic Wide</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-medium);">
+          <div class="status-bar">
+            <div class="tier-tag" style="background: rgba(255,179,71,0.2); color: var(--p3);">MEDIUM</div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 55%; background: var(--p3);"></div></div>
+            <span class="round-label">R6/10</span>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; padding: 16px; justify-content: space-between;">
+            <div style="text-align: center; padding-top: 24px;">
+              <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 3px;">Stepping Up</div>
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 52px; color: var(--p2); margin: 8px 0;">MAYA</div>
+              <div style="display: inline-flex; gap: 4px; align-items: center;">
+                <span class="lb-streak" style="background: rgba(255,215,0,0.2); color: var(--gold);">ON FIRE 3</span>
+              </div>
+            </div>
+            <div style="flex: 1;"></div>
+            <div style="display: flex; gap: 0; margin-bottom: 12px; border-radius: 16px; overflow: hidden;">
+              <button class="big-btn btn-made" style="height: 120px; font-size: 32px; border-radius: 16px 0 0 16px;">MADE</button>
+              <button class="big-btn btn-missed" style="height: 120px; font-size: 32px; border-radius: 0 16px 16px 0;">MISSED</button>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 4px;">
+              <span style="font-size: 11px; color: var(--muted);">Top: Jake 24 | Maya 21 | Lena 18</span>
+              <div style="display: flex; align-items: center; gap: 4px; color: var(--blue); font-size: 11px;">
+                <span>&#128737;</span> Shield
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Referee V3: Spicy Punishment Reveal -->
+    <div class="phone-col">
+      <span class="phone-label">V3 — Punishment Reveal</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-spicy);">
+          <div class="status-bar">
+            <div class="tier-tag" style="background: rgba(239,68,68,0.2); color: var(--red);">SPICY</div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 85%; background: var(--red);"></div></div>
+            <span class="round-label">R9/10</span>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; padding: 16px; justify-content: center; align-items: center;">
+            <div style="position: relative; width: 100%;">
+              <div class="slash-bg" style="top: -20px; left: -20%; background: var(--red);"></div>
+              <div class="slash-bg" style="bottom: -20px; left: -10%; background: var(--gold);"></div>
+              <div class="punishment-frame" style="background: rgba(61,10,10,0.5); border-color: rgba(239,68,68,0.3);">
+                <div class="punishment-header" style="color: var(--gold); font-size: 12px; letter-spacing: 4px;">THE POOL GODS HAVE SPOKEN</div>
+                <div class="tier-tag" style="background: rgba(239,68,68,0.2); color: var(--red); display: inline-block; margin-bottom: 12px;">SPICY</div>
+                <div class="punishment-text" style="font-size: 22px; color: var(--text);">Group composes and sends ONE text from your phone</div>
+                <div style="margin-top: 12px; font-size: 12px; color: var(--muted);">Target: <span style="color: var(--p1); font-family: 'Oswald', sans-serif;">DANNY</span></div>
+              </div>
+            </div>
+            <button style="margin-top: 24px; padding: 14px 48px; background: linear-gradient(135deg, var(--red), #B91C1C); border: none; border-radius: 10px; color: white; font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 16px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px;">Punishment Delivered</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ==================== PLAYER SCREENS ==================== -->
+<div id="player">
+  <div class="section-header">
+    <h2>PLAYER VIEW</h2>
+    <p>Spectator dashboard with one action. Leaderboard dominates. Event feed narrates. Item deploys with one tap.</p>
+  </div>
+
+  <div class="phone-grid">
+    <!-- Player V1: Leaderboard Focus -->
+    <div class="phone-col">
+      <span class="phone-label">V1 — Leaderboard Focus</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-medium);">
+          <div class="status-bar">
+            <div class="tier-tag" style="background: rgba(255,179,71,0.2); color: var(--p3);">MEDIUM</div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 50%; background: var(--p3);"></div></div>
+            <span class="round-label">R5/10</span>
+          </div>
+          <div style="flex: 1; padding: 12px; display: flex; flex-direction: column;">
+            <div style="flex: 1;">
+              <div class="lb-entry" style="background: rgba(255,215,0,0.06);">
+                <span class="lb-rank" style="color: var(--gold);">1</span>
+                <div class="player-shape shape-circle" style="background: var(--p1); width: 20px; height: 20px;"></div>
+                <span class="player-name" style="font-size: 16px;">Jake</span>
+                <span class="lb-streak" style="background: rgba(255,215,0,0.15); color: var(--gold); font-size: 9px;">ON FIRE</span>
+                <span class="lb-score" style="color: var(--gold);">24</span>
+              </div>
+              <div class="lb-entry">
+                <span class="lb-rank">2</span>
+                <div class="player-shape shape-square" style="background: var(--p2); width: 20px; height: 20px; border-radius: 3px;"></div>
+                <span class="player-name" style="font-size: 16px;">Maya</span>
+                <span class="lb-score">21</span>
+              </div>
+              <div class="lb-entry">
+                <span class="lb-rank">3</span>
+                <div class="player-shape shape-diamond" style="background: var(--p4); width: 14px; height: 14px; transform: rotate(45deg); border-radius: 2px;"></div>
+                <span class="player-name" style="font-size: 16px; margin-left: 3px;">Lena</span>
+                <span class="lb-score">18</span>
+              </div>
+              <div class="lb-entry" style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); margin-top: 2px;">
+                <span class="lb-rank">4</span>
+                <div class="player-shape shape-circle" style="background: var(--p3); width: 20px; height: 20px; border-radius: 50%;"></div>
+                <span class="player-name" style="font-size: 16px; color: var(--blue);">You (Danny)</span>
+                <span class="lb-score" style="color: var(--blue);">12</span>
+              </div>
+              <div class="lb-entry">
+                <span class="lb-rank">5</span>
+                <div class="player-shape" style="background: var(--p5); width: 20px; height: 20px; clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);"></div>
+                <span class="player-name" style="font-size: 16px;">Marcus</span>
+                <span class="lb-score">9</span>
+              </div>
+            </div>
+            <div style="margin: 8px 0;">
+              <div class="event-item" style="border-color: var(--purple); font-family: 'Barlow', sans-serif;">
+                <span style="color: var(--purple);">&#10024;</span> Maya completed secret mission! +6
+              </div>
+              <div class="event-item" style="border-color: var(--p3); font-family: 'Barlow', sans-serif;">
+                <span style="color: var(--gold);">&#128293;</span> Jake is ON FIRE! 3 streak
+              </div>
+            </div>
+            <div class="item-card">
+              <div class="item-icon" style="background: rgba(59,130,246,0.15);">&#127776;</div>
+              <div>
+                <div class="item-name">Blue Shell</div>
+                <div class="item-action">TAP TO DEPLOY</div>
+              </div>
+              <div style="margin-left: auto; color: var(--gold); font-size: 20px;">&#9654;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player V2: Blue Shell Targeting -->
+    <div class="phone-col">
+      <span class="phone-label">V2 — Item Targeting</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-medium);">
+          <div class="status-bar">
+            <div class="tier-tag" style="background: rgba(255,179,71,0.2); color: var(--p3);">MEDIUM</div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 55%; background: var(--p3);"></div></div>
+            <span class="round-label">R6/10</span>
+          </div>
+          <div style="flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 28px; color: var(--blue); margin-bottom: 4px;">&#127776; BLUE SHELL</div>
+            <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 14px; color: var(--muted); margin-bottom: 24px; text-transform: uppercase; letter-spacing: 2px;">Choose Your Target</div>
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(255,215,0,0.08); border: 2px solid rgba(255,215,0,0.3); border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                <span class="lb-rank" style="color: var(--gold); font-size: 14px;">1st</span>
+                <div class="player-shape shape-circle" style="background: var(--p1); width: 24px; height: 24px;"></div>
+                <span style="font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 18px;">Jake</span>
+                <span style="margin-left: auto; font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 20px; color: var(--gold);">24</span>
+                <span style="font-size: 20px;">&#127919;</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(240,237,246,0.03); border: 1px solid rgba(240,237,246,0.08); border-radius: 10px; cursor: pointer; opacity: 0.5;">
+                <span class="lb-rank" style="font-size: 14px;">2nd</span>
+                <div class="player-shape shape-square" style="background: var(--p2); width: 24px; height: 24px; border-radius: 3px;"></div>
+                <span style="font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 18px;">Maya</span>
+                <span style="margin-left: auto; font-family: 'Oswald', sans-serif; font-size: 20px;">21</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(240,237,246,0.03); border: 1px solid rgba(240,237,246,0.08); border-radius: 10px; cursor: pointer; opacity: 0.5;">
+                <span class="lb-rank" style="font-size: 14px;">3rd</span>
+                <div class="player-shape shape-diamond" style="background: var(--p4); width: 16px; height: 16px; transform: rotate(45deg); border-radius: 2px;"></div>
+                <span style="font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 18px; margin-left: 4px;">Lena</span>
+                <span style="margin-left: auto; font-family: 'Oswald', sans-serif; font-size: 20px;">18</span>
+              </div>
+            </div>
+            <div style="margin-top: 20px; font-size: 12px; color: var(--muted);">Target loses 3 pts + shoots off-handed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player V3: Record This -->
+    <div class="phone-col">
+      <span class="phone-label">V3 — "Record This" Prompt</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-spicy);">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center;">
+            <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(239,68,68,0.2); border: 3px solid var(--red); display: flex; align-items: center; justify-content: center; font-size: 36px; margin-bottom: 20px; animation: pulse 1.5s infinite;">&#128249;</div>
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 36px; color: var(--red);">RECORD THIS</div>
+            <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; color: var(--muted); margin-top: 8px; text-transform: uppercase; letter-spacing: 2px;">Something epic is about to happen</div>
+            <div style="margin-top: 24px; padding: 10px 20px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px;">
+              <span style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; color: var(--red);">SPICY PUNISHMENT INCOMING</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: 0.8; } }</style>
+
+<div class="section-divider"></div>
+
+<!-- ==================== LOBBY ==================== -->
+<div id="lobby">
+  <div class="section-header">
+    <h2>PRE-GAME LOBBY</h2>
+    <p>The pregame hype. Staggered arrivals, punishment submission with scaffolding, and the slide-to-start moment.</p>
+  </div>
+
+  <div class="phone-grid">
+    <!-- Lobby V1: Staggered Arrivals -->
+    <div class="phone-col">
+      <span class="phone-label">Lobby — Host View</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-lobby);">
+          <div style="padding: 16px; text-align: center; border-bottom: 1px solid rgba(240,237,246,0.06);">
+            <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 2px;">Room Code</div>
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 36px; letter-spacing: 8px; color: var(--gold);">XKWP</div>
+            <button style="margin-top: 8px; padding: 8px 20px; background: linear-gradient(135deg, var(--blue), var(--purple)); border: none; border-radius: 8px; color: white; font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">&#128279; Share Invite Link</button>
+          </div>
+          <div style="flex: 1; padding: 12px; overflow-y: auto;">
+            <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px; font-family: 'Barlow', sans-serif;">Players (4/8)</div>
+            <div class="lobby-player">
+              <div class="player-shape shape-circle" style="background: var(--p1); width: 20px; height: 20px;"></div>
+              <span style="font-family: 'Oswald', sans-serif; font-weight: 600;">Jake</span>
+              <span style="font-size: 10px; color: var(--gold);">HOST</span>
+              <span class="lobby-status" style="color: var(--green);">&#10003; Ready</span>
+            </div>
+            <div class="lobby-player" style="animation-delay: 0.1s;">
+              <div class="player-shape shape-square" style="background: var(--p2); width: 20px; height: 20px; border-radius: 3px;"></div>
+              <span style="font-family: 'Oswald', sans-serif; font-weight: 600;">Maya</span>
+              <span class="lobby-status" style="color: var(--green);">&#10003; Ready</span>
+            </div>
+            <div class="lobby-player" style="animation-delay: 0.2s;">
+              <div class="player-shape" style="background: var(--p3); width: 20px; height: 20px; border-radius: 50%;"></div>
+              <span style="font-family: 'Oswald', sans-serif; font-weight: 600;">Danny</span>
+              <span class="lobby-status" style="color: var(--p3);">Writing...</span>
+            </div>
+            <div class="lobby-player" style="animation-delay: 0.3s; opacity: 0.7;">
+              <div class="player-shape shape-diamond" style="background: var(--p4); width: 14px; height: 14px; transform: rotate(45deg); border-radius: 2px;"></div>
+              <span style="font-family: 'Oswald', sans-serif; font-weight: 600; margin-left: 3px;">Lena</span>
+              <span class="lobby-status" style="color: var(--muted);">Joining...</span>
+            </div>
+            <div style="margin-top: 16px; padding: 12px; background: rgba(240,237,246,0.03); border-radius: 10px; border: 1px solid rgba(240,237,246,0.06);">
+              <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px;">Your punishment:</div>
+              <input class="punishment-input" placeholder="e.g. &quot;Do your best impression of someone here&quot;" value="Text your ex &quot;thinking of you&quot;">
+              <button class="random-btn">&#127922; Random</button>
+            </div>
+            <div style="margin-top: 12px; font-size: 11px; color: var(--muted);">
+              <div style="margin-bottom: 4px;">Rounds: <span style="color: var(--text);">10</span></div>
+            </div>
+          </div>
+          <div style="padding: 12px 16px;">
+            <div class="slide-start">
+              <div class="slide-text">SLIDE TO START GAME</div>
+              <div class="slide-track">&#9654;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Role Reveal -->
+    <div class="phone-col">
+      <span class="phone-label">Referee Handoff</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--base);">
+          <div class="role-reveal">
+            <div style="font-size: 48px; margin-bottom: 16px;">&#127908;</div>
+            <div class="role-reveal-title" style="color: var(--gold);">YOU'RE THE<br>REFEREE NOW</div>
+            <div class="role-reveal-sub">Take the mic, <span style="color: var(--p2);">Maya</span></div>
+            <div style="margin-top: 32px; width: 60px; height: 4px; background: var(--gold); border-radius: 2px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ==================== CASCADE MOMENTS ==================== -->
+<div id="cascade">
+  <div class="section-header">
+    <h2>CASCADE MOMENTS</h2>
+    <p>The consequence cascade in action. Item drops, streak milestones, and the triple-points activation.</p>
+  </div>
+
+  <div class="phone-grid">
+    <!-- Item Drop -->
+    <div class="phone-col">
+      <span class="phone-label">Item Drop (Referee)</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-mild);">
+          <div class="status-bar">
+            <div class="tier-tag" style="background: rgba(78,205,196,0.2); color: var(--p2);">MILD</div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 20%; background: var(--p2);"></div></div>
+            <span class="round-label">R2/10</span>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;">
+            <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 13px; color: var(--red); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">Danny Missed</div>
+            <div style="width: 100%; height: 1px; background: rgba(240,237,246,0.06); margin: 12px 0;"></div>
+            <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 12px; color: var(--gold); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 12px;">The Pool Gods Smile Upon You</div>
+            <div style="width: 64px; height: 64px; background: rgba(59,130,246,0.15); border: 2px solid var(--blue); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 8px;">&#128737;</div>
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 24px; color: var(--blue);">SHIELD</div>
+            <div style="font-family: 'Barlow', sans-serif; font-size: 13px; color: var(--muted); margin-top: 4px;">Blocks the next punishment or item</div>
+            <div style="margin-top: 20px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 14px; color: var(--text);">Announce: "Danny receives a Shield!"</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Streak Milestone -->
+    <div class="phone-col">
+      <span class="phone-label">Streak: UNSTOPPABLE</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-medium);">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 12px;">&#128293;&#128293;&#128293;</div>
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 44px; color: var(--gold); text-shadow: 0 0 30px rgba(255,215,0,0.3);">UNSTOPPABLE</div>
+            <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 18px; color: var(--p1); margin-top: 8px;">JAKE — 5 IN A ROW</div>
+            <div style="margin-top: 16px; font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 20px; color: var(--green);">+3 base +3 streak = +6</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Triple Points -->
+    <div class="phone-col">
+      <span class="phone-label">Triple Points Activation</span>
+      <div class="phone">
+        <div class="phone-screen" style="background: var(--tier-spicy);">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; position: relative; overflow: hidden;">
+            <div class="slash-bg" style="top: 30%; left: -20%; background: var(--gold); opacity: 0.15;"></div>
+            <div class="slash-bg" style="top: 50%; left: -10%; background: var(--red); opacity: 0.1;"></div>
+            <div class="slash-bg" style="top: 70%; left: -30%; background: var(--gold); opacity: 0.15;"></div>
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 64px; color: var(--gold); text-shadow: 0 0 40px rgba(255,215,0,0.4); position: relative; z-index: 1;">3X</div>
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 32px; color: var(--text); position: relative; z-index: 1;">TRIPLE POINTS</div>
+            <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; color: var(--red); margin-top: 8px; text-transform: uppercase; letter-spacing: 2px; position: relative; z-index: 1;">Final 3 Rounds</div>
+            <div style="margin-top: 20px; font-family: 'Barlow', sans-serif; font-size: 13px; color: var(--muted); position: relative; z-index: 1;">Every shot counts triple. Announce it.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ==================== REPORT CARD ==================== -->
+<div id="report">
+  <div class="section-header">
+    <h2>POST-GAME REPORT CARD</h2>
+    <p>The viral growth engine. Two formats — 9:16 for Instagram Stories, 1:1 for group chats. The diagonal slash motif makes it instantly recognizable.</p>
+  </div>
+
+  <div class="phone-grid" style="align-items: start;">
+    <!-- 9:16 Report Card -->
+    <div class="phone-col">
+      <span class="phone-label">9:16 — Instagram Stories</span>
+      <div class="report-card" style="height: 500px; background: var(--base);">
+        <div class="slash-bg" style="top: 15%; left: -10%; background: var(--gold); opacity: 0.12;"></div>
+        <div class="slash-bg" style="top: 35%; left: -20%; background: var(--blue); opacity: 0.08;"></div>
+        <div class="slash-bg" style="top: 75%; left: -5%; background: var(--gold); opacity: 0.12;"></div>
+        <div class="rc-header" style="background: linear-gradient(180deg, rgba(255,215,0,0.08), transparent);">
+          <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 14px; color: var(--muted); letter-spacing: 4px; text-transform: uppercase;">Game Over</div>
+          <div class="rc-title" style="font-size: 32px;">RACKUP</div>
+          <div class="rc-date">Thursday, Mar 20 @ The Brass Tap</div>
+          <div style="margin-top: 12px; display: flex; justify-content: center; gap: 16px;">
+            <div style="text-align: center;">
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 24px; color: var(--gold);">1st</div>
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px; color: var(--p1);">Danny</div>
+              <div style="font-size: 11px; color: var(--muted);">28 pts</div>
+            </div>
+            <div style="text-align: center; margin-top: 8px;">
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px;">2nd</div>
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px; color: var(--p2);">Maya</div>
+              <div style="font-size: 11px; color: var(--muted);">24 pts</div>
+            </div>
+            <div style="text-align: center; margin-top: 16px;">
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 16px;">3rd</div>
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px; color: var(--p1);">Jake</div>
+              <div style="font-size: 11px; color: var(--muted);">21 pts</div>
+            </div>
+          </div>
+        </div>
+        <div class="rc-awards" style="position: relative; z-index: 1;">
+          <div class="rc-award">
+            <span class="rc-award-icon">&#127942;</span>
+            <div><div class="rc-award-title" style="color: var(--gold);">MVP</div><div class="rc-award-player">Danny — 28 pts</div></div>
+          </div>
+          <div class="rc-award">
+            <span class="rc-award-icon">&#127919;</span>
+            <div><div class="rc-award-title" style="color: var(--green);">Sharpshooter</div><div class="rc-award-player">Maya — 78% accuracy</div></div>
+          </div>
+          <div class="rc-award">
+            <span class="rc-award-icon">&#129354;</span>
+            <div><div class="rc-award-title" style="color: var(--red);">Punching Bag</div><div class="rc-award-player">Jake — 7 punishments</div></div>
+          </div>
+          <div class="rc-award">
+            <span class="rc-award-icon">&#127881;</span>
+            <div><div class="rc-award-title" style="color: var(--muted);">Participant Trophy</div><div class="rc-award-player">Lena — 6 pts (but best referee)</div></div>
+          </div>
+          <div class="rc-award">
+            <span class="rc-award-icon">&#128293;</span>
+            <div><div class="rc-award-title" style="color: var(--p3);">Hot Hand</div><div class="rc-award-player">Jake — 5 streak</div></div>
+          </div>
+        </div>
+        <button class="rc-share-btn">&#128228; Share to Stories</button>
+      </div>
+    </div>
+
+    <!-- 1:1 Report Card -->
+    <div class="phone-col">
+      <span class="phone-label">1:1 — Group Chat</span>
+      <div class="report-card" style="width: 300px; height: 300px; background: var(--base);">
+        <div class="slash-bg" style="top: 25%; left: -10%; background: var(--gold); opacity: 0.12;"></div>
+        <div class="slash-bg" style="top: 65%; left: -20%; background: var(--blue); opacity: 0.08;"></div>
+        <div style="padding: 16px; display: flex; flex-direction: column; height: 100%; position: relative; z-index: 1;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 20px; color: var(--gold);">RACKUP</div>
+            <div style="font-size: 10px; color: var(--muted);">Mar 20</div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: center;">
+            <div style="text-align: center; background: rgba(255,215,0,0.06); padding: 6px 12px; border-radius: 8px;">
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 16px; color: var(--gold);">1st</div>
+              <div style="font-family: 'Oswald', sans-serif; font-size: 12px; color: var(--p1);">Danny</div>
+            </div>
+            <div style="text-align: center; padding: 6px 12px;">
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 14px;">2nd</div>
+              <div style="font-family: 'Oswald', sans-serif; font-size: 12px; color: var(--p2);">Maya</div>
+            </div>
+            <div style="text-align: center; padding: 6px 12px;">
+              <div style="font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 14px;">3rd</div>
+              <div style="font-family: 'Oswald', sans-serif; font-size: 12px; color: var(--p1);">Jake</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;"><span>&#127942;</span> <span class="rc-award-title" style="font-size: 10px; color: var(--gold);">MVP</span> <span style="color: var(--muted);">Danny</span></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;"><span>&#127919;</span> <span class="rc-award-title" style="font-size: 10px; color: var(--green);">Sharp</span> <span style="color: var(--muted);">Maya</span></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;"><span>&#129354;</span> <span class="rc-award-title" style="font-size: 10px; color: var(--red);">Bag</span> <span style="color: var(--muted);">Jake</span></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;"><span>&#127881;</span> <span class="rc-award-title" style="font-size: 10px; color: var(--muted);">Trophy</span> <span style="color: var(--muted);">Lena</span></div>
+          </div>
+          <div style="text-align: center; font-size: 10px; color: var(--muted); margin-top: 4px;">rackup.app</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ==================== ITEMS ==================== -->
+<div id="items">
+  <div class="section-header">
+    <h2>ITEM DECK</h2>
+    <p>10 items, consistent card format, electric blue border. Each icon communicates the effect at a glance.</p>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding: 0 24px 80px; max-width: 700px; margin: 0 auto;">
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(59,130,246,0.15); margin-bottom: 6px;">&#127776;</div>
+      <div class="item-name">Blue Shell</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(34,197,94,0.15); margin-bottom: 6px;">&#128737;</div>
+      <div class="item-name">Shield</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(239,68,68,0.15); margin-bottom: 6px;">&#129309;</div>
+      <div class="item-name">Score Steal</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(255,179,71,0.15); margin-bottom: 6px;">&#9889;</div>
+      <div class="item-name">Streak Breaker</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(255,215,0,0.15); margin-bottom: 6px;">&#11014;&#11014;</div>
+      <div class="item-name">Double Up</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(155,89,182,0.15); margin-bottom: 6px;">&#129680;</div>
+      <div class="item-name">Trap Card</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(255,107,107,0.15); margin-bottom: 6px;">&#128260;</div>
+      <div class="item-name">Reverse</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(240,237,246,0.1); margin-bottom: 6px;">&#11088;</div>
+      <div class="item-name">Immunity</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(78,205,196,0.15); margin-bottom: 6px;">&#128260;</div>
+      <div class="item-name">Mulligan</div>
+    </div>
+    <div class="item-card" style="width: 140px; flex-direction: column; text-align: center; padding: 14px;">
+      <div class="item-icon" style="background: rgba(253,121,168,0.15); margin-bottom: 6px;">&#10068;</div>
+      <div class="item-name">Wildcard</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>
