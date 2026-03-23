@@ -670,7 +670,7 @@ The MVP scope above is what ships to the App Store. But for a solo developer, bu
 - **FR32:** The system awards an item to a player on a missed shot with a default probability of 50%
 - **FR33:** The system applies rubber banding — last place draws from the full item deck; first place is excluded from Blue Shell draws
 - **FR34:** Each player can hold one item at a time (use-it-or-lose-it — current item is replaced if a new one is received)
-- **FR35:** Players can deploy their held item on their turn, targeting another player when applicable
+- **FR35:** Players can deploy their held item at any point during active gameplay, targeting another player when applicable (anytime deployment — not limited to the player's own turn)
 - **FR36:** The system resolves item effects for all 10 items (each item is a distinct sub-requirement that must be independently implemented and tested):
   - **FR36a:** Blue Shell — target first place player; they lose 3 points and must shoot off-handed next turn
   - **FR36b:** Shield — block the next punishment or item used against you
@@ -732,6 +732,7 @@ The MVP scope above is what ships to the App Store. But for a solo developer, bu
 - **FR66:** The system tracks item deployment events (which items are used, how often)
 - **FR67:** The system tracks sequential room creation by the same host within a single session to measure Second Game Rate
 - **FR68:** The system tracks referee satisfaction feedback (thumbs up/down) from post-game micro-surveys
+- **FR69:** The host can initiate a "Play Again" flow after the game ends; the system creates a new room, automatically migrates all connected players (preserving display names and device ID associations), issues new JWTs, reuses existing WebSocket connections, and transitions all players to a new lobby with zero friction
 
 ## Non-Functional Requirements
 

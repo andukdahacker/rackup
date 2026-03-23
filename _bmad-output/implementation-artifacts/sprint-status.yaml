@@ -1,0 +1,124 @@
+# generated: 2026-03-23
+# last_updated: 2026-03-23
+# project: rackup
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: {project-root}/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-23
+last_updated: 2026-03-23
+project: rackup
+project_key: NOKEY
+tracking_system: file-system
+story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+development_status:
+  # Epic 1: Room Creation & Joining
+  epic-1: backlog
+  1-1-client-and-server-scaffolding: backlog
+  1-2-deployment-and-ci-cd: backlog
+  1-3-design-system-and-theme: backlog
+  1-4-device-identity-and-app-home-screen: backlog
+  1-5-room-creation: backlog
+  1-6-join-room-via-code: backlog
+  1-7-join-room-via-deep-link: backlog
+  1-8-accessibility-audit-and-compliance: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Pre-Game Lobby & Punishment Submission
+  epic-2: backlog
+  2-1-pre-game-lobby-display: backlog
+  2-2-punishment-submission: backlog
+  2-3-game-configuration-and-start: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Core Gameplay & Referee
+  epic-3: backlog
+  3-1-referee-assignment-and-role-reveal: backlog
+  3-2-turn-management-and-shot-confirmation: backlog
+  3-3-scoring-streaks-and-consequence-chain: backlog
+  3-4-live-leaderboard: backlog
+  3-5-game-progression-and-triple-points: backlog
+  3-6-sound-effects-and-screen-awake: backlog
+  3-7-event-feed-and-game-end: backlog
+  3-8-record-this-moments: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Punishment System
+  epic-4: backlog
+  4-1-punishment-draw-and-tier-escalation: backlog
+  4-2-punishment-display-and-referee-announcement: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Items & Power-Ups
+  epic-5: backlog
+  5-1-item-drop-and-inventory: backlog
+  5-2-item-deployment-and-targeting: backlog
+  5-3-item-effects-offensive-items: backlog
+  5-4-item-effects-defensive-and-self-items: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Secret Missions
+  epic-6: backlog
+  6-1-mission-assignment-and-delivery: backlog
+  6-2-mission-completion-and-deck: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Referee Rotation & Resilience
+  epic-7: backlog
+  7-1-referee-rotation-and-handoff: backlog
+  7-2-referee-disconnect-failover: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Post-Game Ceremony & Sharing
+  epic-8: backlog
+  8-1-podium-ceremony: backlog
+  8-2-report-card-and-awards: backlog
+  8-3-share-image-and-social-sharing: backlog
+  8-4-referee-feedback: backlog
+  8-5-play-again: backlog
+  8-6-room-cleanup-and-exit: backlog
+  epic-8-retrospective: optional
+
+  # Epic 9: Connection Resilience & Mid-Game Join
+  epic-9: backlog
+  9-1-player-disconnection-and-turn-skipping: backlog
+  9-2-reconnection-and-state-sync: backlog
+  9-3-mid-game-join-and-connection-loss: backlog
+  epic-9-retrospective: optional
+
+  # Epic 10: Analytics & Growth Metrics
+  epic-10: backlog
+  10-1-game-event-tracking-and-data-pipeline: backlog
+  10-2-player-engagement-metrics: backlog
+  10-3-group-identity-and-return-tracking: backlog
+  epic-10-retrospective: optional
