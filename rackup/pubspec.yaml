@@ -1,0 +1,34 @@
+name: rackup
+description: Party game platform for real bar games
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+  flutter: ^3.41.0
+
+dependencies:
+  bloc: ^9.2.0
+  equatable: ^2.0.8
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^9.1.1
+  flutter_localizations:
+    sdk: flutter
+  go_router: ^17.1.0
+  intl: ^0.20.2
+  share_plus: ^12.0.1
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  bloc_lint: ^0.4.0
+  bloc_test: ^10.0.0
+  bloc_tools: ^0.1.0-dev.23
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  very_good_analysis: ^10.2.0
+
+flutter:
+  generate: true
+  uses-material-design: true
