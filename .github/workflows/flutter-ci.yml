@@ -1,4 +1,4 @@
-name: rackup
+name: flutter-ci
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -8,9 +8,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "rackup/**"
   pull_request:
     branches:
       - main
+    paths:
+      - "rackup/**"
 
 jobs:
   semantic-pull-request:
@@ -21,6 +25,7 @@ jobs:
     with:
       flutter_version: "3.41.x"
       run_bloc_lint: true
+      working_directory: rackup
 
   spell-check:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/spell_check.yml@v1

@@ -40,8 +40,9 @@ void main() {
       expect(config.wsBaseUrl, startsWith('wss://'));
     });
 
-    test('Sentry logging is enabled', () {
-      expect(config.enableSentryLogging, isTrue);
+    test('Sentry logging disabled when DSN is empty', () {
+      expect(config.sentryDsn, isEmpty);
+      expect(config.enableSentryLogging, isFalse);
     });
 
     test('implements AppConfig', () {
@@ -60,8 +61,9 @@ void main() {
       expect(config.wsBaseUrl, startsWith('wss://'));
     });
 
-    test('Sentry logging is enabled', () {
-      expect(config.enableSentryLogging, isTrue);
+    test('Sentry logging disabled when DSN is empty', () {
+      expect(config.sentryDsn, isEmpty);
+      expect(config.enableSentryLogging, isFalse);
     });
 
     test('implements AppConfig', () {

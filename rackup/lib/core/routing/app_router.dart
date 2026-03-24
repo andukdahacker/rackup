@@ -17,7 +17,9 @@ class _PlaceholderHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(child: Text('Rackup')),
+      body: SafeArea(
+        child: Center(child: Text('Rackup')),
+      ),
     );
   }
 }

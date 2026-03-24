@@ -1,0 +1,31 @@
+name: server-ci
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "rackup-server/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "rackup-server/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rackup-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: rackup-server/go.mod
+      - run: go test ./...
+      - run: go vet ./...

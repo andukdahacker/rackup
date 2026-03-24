@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: "daily"
   - package-ecosystem: "pub"
-    directory: "/"
+    directory: "/rackup"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "gomod"
+    directory: "/rackup-server"
     schedule:
       interval: "daily"
