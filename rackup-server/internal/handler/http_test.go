@@ -4,13 +4,22 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ducdo/rackup-server/internal/protocol"
+	"github.com/ducdo/rackup-server/internal/room"
 )
 
+var testSecret = []byte("test-secret-key-that-is-at-least-32-bytes-long!!")
+
+func newTestHandler() *Handler {
+	mgr := room.NewRoomManager()
+	return New(nil, mgr, testSecret)
+}
+
 func TestHealth(t *testing.T) {
-	h := New(nil) // pool not needed for health check
+	h := newTestHandler()
 
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -47,18 +56,67 @@ func TestHealth(t *testing.T) {
 	}
 }
 
-func TestCreateRoom_NotImplemented(t *testing.T) {
-	h := New(nil)
+func TestCreateRoom_Success(t *testing.T) {
+	h := newTestHandler()
 
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
-	req := httptest.NewRequest(http.MethodPost, "/rooms", nil)
+	body := `{"deviceIdHash":"abc123hash"}`
+	req := httptest.NewRequest(http.MethodPost, "/rooms", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
 
-	if w.Code != http.StatusNotImplemented {
-		t.Fatalf("expected status 501, got %d", w.Code)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	var resp createRoomResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.RoomCode) != 4 {
+		t.Errorf("expected 4-char room code, got %q", resp.RoomCode)
+	}
+	if resp.JWT == "" {
+		t.Error("expected non-empty JWT")
+	}
+
+	// Cleanup
+	h.manager.CleanupRoom(resp.RoomCode)
+}
+
+func TestCreateRoom_MissingBody(t *testing.T) {
+	h := newTestHandler()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodPost, "/rooms", strings.NewReader(""))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestCreateRoom_EmptyDeviceIdHash(t *testing.T) {
+	h := newTestHandler()
+
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	body := `{"deviceIdHash":""}`
+	req := httptest.NewRequest(http.MethodPost, "/rooms", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
 	}
 
 	var msg protocol.Message
@@ -66,21 +124,17 @@ func TestCreateRoom_NotImplemented(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if msg.Action != protocol.ActionError {
-		t.Errorf("expected action %q, got %q", protocol.ActionError, msg.Action)
-	}
-
 	var payload protocol.ErrorPayload
 	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 		t.Fatalf("failed to decode payload: %v", err)
 	}
-	if payload.Code != protocol.ErrNotImplemented {
-		t.Errorf("expected code %q, got %q", protocol.ErrNotImplemented, payload.Code)
+	if payload.Code != protocol.ErrInvalidRequest {
+		t.Errorf("expected code %q, got %q", protocol.ErrInvalidRequest, payload.Code)
 	}
 }
 
 func TestJoinRoom_NotImplemented(t *testing.T) {
-	h := New(nil)
+	h := newTestHandler()
 
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)

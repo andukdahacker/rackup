@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rackup/core/config/app_config.dart';
 import 'package:rackup/core/routing/app_router.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
+import 'package:rackup/core/services/room_api_service.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
@@ -30,6 +31,9 @@ class App extends StatelessWidget {
         RepositoryProvider<AppConfig>.value(value: config),
         RepositoryProvider<DeviceIdentityService>.value(
           value: deviceIdentityService,
+        ),
+        RepositoryProvider<RoomApiService>(
+          create: (_) => RoomApiService(apiBaseUrl: config.apiBaseUrl),
         ),
       ],
       child: MaterialApp.router(

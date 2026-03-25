@@ -4,5 +4,8 @@ const (
 	ErrRoomFull       = "ROOM_FULL"
 	ErrRoomNotFound   = "ROOM_NOT_FOUND"
 	ErrUnauthorized   = "UNAUTHORIZED"
-	ErrNotImplemented = "NOT_IMPLEMENTED"
+	ErrNotImplemented  = "NOT_IMPLEMENTED"
+	ErrInvalidRequest  = "INVALID_REQUEST"
+	ErrInternal        = "INTERNAL"
+	ErrCapacityExceeded = "CAPACITY_EXCEEDED"
 )

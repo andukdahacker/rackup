@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ducdo/rackup-server/internal/auth"
 	"github.com/ducdo/rackup-server/internal/handler"
+	"github.com/ducdo/rackup-server/internal/room"
 	"github.com/ducdo/rackup-server/internal/store"
 )
 
@@ -35,8 +37,15 @@ func main() {
 		slog.Error("DATABASE_URL is required")
 		os.Exit(1)
 	}
-	// JWT_SECRET loaded but not used until Story 1.5.
-	_ = os.Getenv("JWT_SECRET")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		slog.Error("JWT_SECRET is required")
+		os.Exit(1)
+	}
+	if len(jwtSecret) < auth.MinSecretLength {
+		slog.Error("JWT_SECRET must be at least 32 bytes")
+		os.Exit(1)
+	}
 
 	// Database connection pool.
 	pool, err := store.NewPool(context.Background(), dbURL)
@@ -46,9 +55,12 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Room manager.
+	mgr := room.NewRoomManager()
+
 	// HTTP routes — stdlib ServeMux.
 	mux := http.NewServeMux()
-	h := handler.New(pool)
+	h := handler.New(pool, mgr, []byte(jwtSecret))
 	h.RegisterRoutes(mux)
 
 	srv := &http.Server{

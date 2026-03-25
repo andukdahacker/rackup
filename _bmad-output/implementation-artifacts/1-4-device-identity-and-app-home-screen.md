@@ -1,6 +1,6 @@
 # Story 1.4: Device Identity & App Home Screen
 
-Status: review
+Status: done
 
 ## Story
 

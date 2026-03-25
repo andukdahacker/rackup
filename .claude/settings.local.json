@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(go version:*)",
+      "Bash(go mod:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(flutter test:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter pub:*)",
+      "Bash(go build:*)"
     ]
   }
 }
