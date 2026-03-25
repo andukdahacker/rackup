@@ -37,6 +37,8 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<!-- TODO(team): Apple HIG recommends landscape support on iPad.
+	     Portrait-only may cause App Store review issues. Revisit before submission. -->
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

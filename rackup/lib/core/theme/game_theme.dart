@@ -101,9 +101,7 @@ class RackUpGameTheme extends InheritedWidget {
   }
 
   @override
-  bool updateShouldNotify(RackUpGameTheme oldWidget) =>
-      data.tier != oldWidget.data.tier ||
-      data.animationsEnabled != oldWidget.data.animationsEnabled;
+  bool updateShouldNotify(RackUpGameTheme oldWidget) => data != oldWidget.data;
 
   /// Returns the [EscalationTier] for a given game progression percentage.
   ///

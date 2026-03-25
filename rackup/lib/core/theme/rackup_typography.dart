@@ -84,6 +84,15 @@ abstract final class RackUpTypography {
     color: RackUpColors.textPrimary,
   );
 
+  /// Button label — 28dp, Barlow 600, no scaling (1.0x).
+  static const TextStyle buttonLabel = TextStyle(
+    fontFamily: RackUpFontFamilies.body,
+    fontSize: 28,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    color: RackUpColors.textPrimary,
+  );
+
   /// Caption — 14dp, Barlow 400, line height 1.4.
   static const TextStyle caption = TextStyle(
     fontFamily: RackUpFontFamilies.body,
@@ -92,6 +101,10 @@ abstract final class RackUpTypography {
     height: 1.4,
     color: RackUpColors.textPrimary,
   );
+
+  // TODO(team): Bundle font assets and set
+  // GoogleFonts.config.allowRuntimeFetching = false before production.
+  // Currently fonts are fetched over the network on first launch.
 
   /// Builds the complete [TextTheme] with Google Fonts loaded.
   ///
@@ -108,6 +121,7 @@ abstract final class RackUpTypography {
       bodyLarge: GoogleFonts.barlow(textStyle: bodyLg),
       bodyMedium: GoogleFonts.barlow(textStyle: body),
       bodySmall: GoogleFonts.barlow(textStyle: caption),
+      labelLarge: GoogleFonts.barlow(textStyle: buttonLabel),
     );
   }
 }

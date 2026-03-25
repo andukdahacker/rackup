@@ -81,6 +81,10 @@ class ClampedTextScaler implements TextScaler {
     return math.min(baseFactor, maxScaleFactor);
   }
 
+  /// Returns a new [ClampedTextScaler] with the base scaler clamped to
+  /// [minScaleFactor]–[maxScaleFactor]. The role's maximum scale factor still
+  /// applies on top, so requesting a [minScaleFactor] above the role max will
+  /// be silently capped to the role max.
   @override
   TextScaler clamp({
     double minScaleFactor = 0,

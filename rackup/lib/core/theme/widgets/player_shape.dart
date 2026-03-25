@@ -10,7 +10,7 @@ class PlayerShapeWidget extends StatelessWidget {
     required this.color,
     this.size = 24,
     super.key,
-  });
+  }) : assert(size > 0, 'size must be positive');
 
   /// The shape to render.
   final PlayerShape shape;

@@ -10,11 +10,13 @@ on:
       - main
     paths:
       - "rackup/**"
+      - ".github/workflows/flutter-ci.yml"
   pull_request:
     branches:
       - main
     paths:
       - "rackup/**"
+      - ".github/workflows/flutter-ci.yml"
 
 jobs:
   semantic-pull-request:

@@ -44,6 +44,9 @@ abstract final class RackUpColors {
   /// Spicy/Triple tier (70–100%) — hot deep red (#3D0A0A).
   static const Color tierSpicy = Color(0xFF3D0A0A);
 
+  /// Spicy tier accent — gold (#FFD700), used for highlights in the spicy tier.
+  static const Color tierSpicyAccent = streakGold;
+
   // ── Player Identity Colors ──
   /// Slot 1 — Coral (#FF6B6B).
   static const Color playerCoral = Color(0xFFFF6B6B);

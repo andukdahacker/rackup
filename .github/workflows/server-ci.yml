@@ -10,11 +10,13 @@ on:
       - main
     paths:
       - "rackup-server/**"
+      - ".github/workflows/server-ci.yml"
   pull_request:
     branches:
       - main
     paths:
       - "rackup-server/**"
+      - ".github/workflows/server-ci.yml"
 
 jobs:
   test:
