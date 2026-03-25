@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rackup/core/config/app_config.dart';
@@ -8,6 +7,7 @@ import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/home/view/home_page.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/view/create_room_page.dart';
+import 'package:rackup/features/lobby/view/join_room_page.dart';
 
 /// The application's root router configuration.
 final GoRouter appRouter = GoRouter(
@@ -39,22 +39,24 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/join',
-      builder: (context, state) =>
-          const _PlaceholderScreen(title: 'Join Room'),
+      builder: (context, state) {
+        final wsCubit = WebSocketCubit();
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<WebSocketCubit>.value(value: wsCubit),
+            BlocProvider<RoomBloc>(
+              create: (context) => RoomBloc(
+                deviceIdentityService:
+                    context.read<DeviceIdentityService>(),
+                roomApiService: context.read<RoomApiService>(),
+                webSocketCubit: wsCubit,
+                config: context.read<AppConfig>(),
+              ),
+            ),
+          ],
+          child: const JoinRoomPage(),
+        );
+      },
     ),
   ],
 );
-
-class _PlaceholderScreen extends StatelessWidget {
-  const _PlaceholderScreen({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(child: Text(title)),
-    );
-  }
-}

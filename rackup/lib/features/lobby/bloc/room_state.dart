@@ -18,6 +18,11 @@ class RoomCreating extends RoomState {
   const RoomCreating();
 }
 
+/// Room joining is in progress.
+class RoomJoining extends RoomState {
+  const RoomJoining();
+}
+
 /// Room was created successfully.
 class RoomCreatedState extends RoomState {
   const RoomCreatedState({required this.roomCode, required this.jwt});

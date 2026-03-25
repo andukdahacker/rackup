@@ -2,7 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/config/app_config.dart';
-import 'package:rackup/core/protocol/messages.dart';
+import 'package:rackup/core/protocol/messages.dart' show CreateRoomResponse, JoinRoomResponse;
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/services/room_api_service.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
@@ -107,6 +107,99 @@ void main() {
         const RoomCreating(),
         const RoomError(
           message: 'Unable to create room. Please try again.',
+        ),
+      ],
+    );
+  });
+
+  group('JoinRoom', () {
+    blocTest<RoomBloc, RoomState>(
+      'emits [RoomJoining, RoomCreatedState] on success',
+      build: () {
+        when(
+          () => roomApiService.joinRoom('ABCD', 'Alice', 'test-hash'),
+        ).thenAnswer(
+          (_) async => const JoinRoomResponse(jwt: 'join-jwt'),
+        );
+        when(
+          () => webSocketCubit.connect('ws://localhost:8080', 'join-jwt'),
+        ).thenAnswer((_) async {});
+        return buildBloc();
+      },
+      act: (bloc) =>
+          bloc.add(const JoinRoom(code: 'ABCD', displayName: 'Alice')),
+      expect: () => [
+        const RoomJoining(),
+        const RoomCreatedState(roomCode: 'ABCD', jwt: 'join-jwt'),
+      ],
+      verify: (_) {
+        verify(
+          () => webSocketCubit.connect('ws://localhost:8080', 'join-jwt'),
+        ).called(1);
+      },
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'emits [RoomJoining, RoomError] with ROOM_NOT_FOUND',
+      build: () {
+        when(
+          () => roomApiService.joinRoom('ZZZZ', 'Alice', 'test-hash'),
+        ).thenThrow(
+          const RoomApiException(
+            statusCode: 404,
+            message: 'Room not found',
+            errorCode: 'ROOM_NOT_FOUND',
+          ),
+        );
+        return buildBloc();
+      },
+      act: (bloc) =>
+          bloc.add(const JoinRoom(code: 'ZZZZ', displayName: 'Alice')),
+      expect: () => [
+        const RoomJoining(),
+        const RoomError(
+          message: 'Room not found — check the code and try again',
+        ),
+      ],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'emits [RoomJoining, RoomError] with ROOM_FULL',
+      build: () {
+        when(
+          () => roomApiService.joinRoom('ABCD', 'Alice', 'test-hash'),
+        ).thenThrow(
+          const RoomApiException(
+            statusCode: 409,
+            message: 'Room is full',
+            errorCode: 'ROOM_FULL',
+          ),
+        );
+        return buildBloc();
+      },
+      act: (bloc) =>
+          bloc.add(const JoinRoom(code: 'ABCD', displayName: 'Alice')),
+      expect: () => [
+        const RoomJoining(),
+        const RoomError(message: 'Room is full (max 8 players)'),
+      ],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'emits [RoomJoining, RoomError] on network exception',
+      build: () {
+        when(
+          () => roomApiService.joinRoom('ABCD', 'Alice', 'test-hash'),
+        ).thenThrow(Exception('network error'));
+        return buildBloc();
+      },
+      act: (bloc) =>
+          bloc.add(const JoinRoom(code: 'ABCD', displayName: 'Alice')),
+      expect: () => [
+        const RoomJoining(),
+        const RoomError(
+          message:
+              'Connection failed — check your internet and try again.',
         ),
       ],
     );

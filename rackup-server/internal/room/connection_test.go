@@ -51,10 +51,13 @@ func newWSPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
 
 func TestNewPlayerConn(t *testing.T) {
 	clientConn, _ := newWSPair(t)
-	pc := NewPlayerConn(clientConn, "device-hash")
+	pc := NewPlayerConn(clientConn, "device-hash", "Alice")
 
 	if pc.DeviceHash() != "device-hash" {
 		t.Errorf("expected device hash 'device-hash', got %q", pc.DeviceHash())
+	}
+	if pc.DisplayName() != "Alice" {
+		t.Errorf("expected display name 'Alice', got %q", pc.DisplayName())
 	}
 }
 
@@ -62,7 +65,7 @@ func TestWriteAndReadMessage(t *testing.T) {
 	clientConn, serverConn := newWSPair(t)
 
 	// Write from server, read from client PlayerConn.
-	pc := NewPlayerConn(clientConn, "device-hash")
+	pc := NewPlayerConn(clientConn, "device-hash", "")
 
 	msg := []byte(`{"action":"test","payload":{}}`)
 	err := serverConn.Write(context.Background(), websocket.MessageText, msg)
@@ -86,7 +89,7 @@ func TestWriteAndReadMessage(t *testing.T) {
 func TestWriteMessageQueuesAndWritePumpSends(t *testing.T) {
 	clientConn, serverConn := newWSPair(t)
 
-	pc := NewPlayerConn(clientConn, "device-hash")
+	pc := NewPlayerConn(clientConn, "device-hash", "")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -113,7 +116,7 @@ func TestWriteMessageQueuesAndWritePumpSends(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	clientConn, _ := newWSPair(t)
-	pc := NewPlayerConn(clientConn, "device-hash")
+	pc := NewPlayerConn(clientConn, "device-hash", "")
 
 	pc.Close()
 

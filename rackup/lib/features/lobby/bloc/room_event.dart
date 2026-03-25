@@ -13,6 +13,21 @@ class CreateRoom extends RoomEvent {
   const CreateRoom();
 }
 
+/// User tapped "Join" with a room code and display name.
+class JoinRoom extends RoomEvent {
+  /// Creates a [JoinRoom] event.
+  const JoinRoom({required this.code, required this.displayName});
+
+  /// The 4-character room code.
+  final String code;
+
+  /// The player's display name.
+  final String displayName;
+
+  @override
+  List<Object?> get props => [code, displayName];
+}
+
 /// Room was created successfully.
 class RoomCreated extends RoomEvent {
   const RoomCreated({required this.roomCode, required this.jwt});
@@ -37,4 +52,9 @@ class RoomCreateFailed extends RoomEvent {
 /// WebSocket connection established after room creation.
 class WebSocketConnectedEvent extends RoomEvent {
   const WebSocketConnectedEvent();
+}
+
+/// Resets the room state back to initial.
+class ResetRoom extends RoomEvent {
+  const ResetRoom();
 }

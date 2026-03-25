@@ -140,7 +140,22 @@ func (r *Room) AddPlayer(deviceIDHash string, conn *PlayerConn) error {
 	}
 
 	r.players[deviceIDHash] = conn
-	slog.Info("player joined", "code", r.code, "device", deviceIDHash, "count", len(r.players))
+	playerCount := len(r.players)
+	slog.Info("player joined", "code", r.code, "device", deviceIDHash, "count", playerCount)
+
+	// Broadcast lobby.player_joined to all connected players.
+	payload, err := json.Marshal(map[string]interface{}{
+		"displayName":  conn.DisplayName(),
+		"deviceIdHash": conn.DeviceHash(),
+		"playerCount":  playerCount,
+	})
+	if err == nil {
+		r.broadcastLocked(protocol.Message{
+			Action:  protocol.ActionLobbyPlayerJoined,
+			Payload: payload,
+		})
+	}
+
 	return nil
 }
 
@@ -187,6 +202,22 @@ func (r *Room) BroadcastMessage(msg protocol.Message) {
 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
+	for deviceHash, conn := range r.players {
+		if err := conn.WriteMessage(data); err != nil {
+			slog.Warn("failed to send message to player", "code", r.code, "device", deviceHash, "error", err)
+		}
+	}
+}
+
+// broadcastLocked sends a protocol message to all connected players.
+// Must be called with r.mu already held (write or read lock).
+func (r *Room) broadcastLocked(msg protocol.Message) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		slog.Error("failed to marshal broadcast message", "code", r.code, "error", err)
+		return
+	}
 
 	for deviceHash, conn := range r.players {
 		if err := conn.WriteMessage(data); err != nil {

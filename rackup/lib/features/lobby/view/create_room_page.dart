@@ -29,7 +29,7 @@ class CreateRoomPage extends StatelessWidget {
         builder: (context, state) {
           return switch (state) {
             RoomInitial() => const _InitialView(),
-            RoomCreating() => const _LoadingView(),
+            RoomCreating() || RoomJoining() => const _LoadingView(),
             RoomCreatedState() => _SuccessView(
                 roomCode: state.roomCode,
               ),

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ducdo/rackup-server/internal/auth"
 	"github.com/ducdo/rackup-server/internal/protocol"
@@ -56,6 +58,17 @@ type createRoomRequest struct {
 	DeviceIDHash string `json:"deviceIdHash"`
 }
 
+// joinRoomRequest is the expected JSON body for POST /rooms/:code/join.
+type joinRoomRequest struct {
+	DeviceIDHash string `json:"deviceIdHash"`
+	DisplayName  string `json:"displayName"`
+}
+
+// joinRoomResponse is the JSON response for successful room join.
+type joinRoomResponse struct {
+	JWT string `json:"jwt"`
+}
+
 // createRoomResponse is the JSON response for successful room creation.
 type createRoomResponse struct {
 	RoomCode string `json:"roomCode"`
@@ -101,9 +114,47 @@ func (h *Handler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// JoinRoom is a stub for room joining (Story 1.6).
+// JoinRoom handles POST /rooms/{code}/join — validates input, checks room, and returns JWT.
 func (h *Handler) JoinRoom(w http.ResponseWriter, r *http.Request) {
-	writeNotImplemented(w, "Room joining available in Story 1.6")
+	code := r.PathValue("code")
+
+	var req joinRoomRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.DeviceIDHash == "" {
+		writeError(w, http.StatusBadRequest, protocol.ErrInvalidRequest, "deviceIdHash is required")
+		return
+	}
+
+	displayName := strings.TrimSpace(req.DisplayName)
+	if displayName == "" {
+		writeError(w, http.StatusBadRequest, protocol.ErrInvalidRequest, "displayName is required")
+		return
+	}
+	if utf8.RuneCountInString(displayName) > 20 {
+		writeError(w, http.StatusBadRequest, protocol.ErrInvalidRequest, "displayName must be 20 characters or fewer")
+		return
+	}
+
+	rm := h.manager.FindRoom(code)
+	if rm == nil {
+		writeError(w, http.StatusNotFound, protocol.ErrRoomNotFound, "Room not found")
+		return
+	}
+
+	if rm.PlayerCount() >= room.MaxPlayers {
+		writeError(w, http.StatusConflict, protocol.ErrRoomFull, "Room is full")
+		return
+	}
+
+	token, err := auth.IssueToken(h.jwtSecret, code, req.DeviceIDHash, displayName)
+	if err != nil {
+		slog.Error("failed to issue JWT", "error", err, "room", code)
+		writeError(w, http.StatusInternalServerError, protocol.ErrInternal, "Failed to join room")
+		return
+	}
+
+	resp := joinRoomResponse{JWT: token}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {

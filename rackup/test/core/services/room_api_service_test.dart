@@ -116,4 +116,114 @@ void main() {
       );
     });
   });
+
+  group('joinRoom', () {
+    test('joinRoom returns JoinRoomResponse on 200', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.toString(), 'http://localhost:8080/rooms/ABCD/join');
+        expect(request.method, 'POST');
+
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['deviceIdHash'], 'test-hash');
+        expect(body['displayName'], 'Alice');
+
+        return http.Response(
+          jsonEncode({'jwt': 'test-jwt-token'}),
+          200,
+        );
+      });
+
+      final service = RoomApiService(
+        apiBaseUrl: 'http://localhost:8080',
+        client: mockClient,
+      );
+
+      final response =
+          await service.joinRoom('ABCD', 'Alice', 'test-hash');
+      expect(response.jwt, 'test-jwt-token');
+    });
+
+    test('joinRoom throws RoomApiException on 404', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'action': 'error',
+            'payload': {
+              'code': 'ROOM_NOT_FOUND',
+              'message': 'Room not found',
+            },
+          }),
+          404,
+        );
+      });
+
+      final service = RoomApiService(
+        apiBaseUrl: 'http://localhost:8080',
+        client: mockClient,
+      );
+
+      expect(
+        () => service.joinRoom('ZZZZ', 'Alice', 'test-hash'),
+        throwsA(
+          isA<RoomApiException>()
+              .having((e) => e.statusCode, 'statusCode', 404)
+              .having((e) => e.errorCode, 'errorCode', 'ROOM_NOT_FOUND')
+              .having((e) => e.message, 'message', 'Room not found'),
+        ),
+      );
+    });
+
+    test('joinRoom throws RoomApiException on 409', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'action': 'error',
+            'payload': {
+              'code': 'ROOM_FULL',
+              'message': 'Room is full',
+            },
+          }),
+          409,
+        );
+      });
+
+      final service = RoomApiService(
+        apiBaseUrl: 'http://localhost:8080',
+        client: mockClient,
+      );
+
+      expect(
+        () => service.joinRoom('ABCD', 'Alice', 'test-hash'),
+        throwsA(
+          isA<RoomApiException>()
+              .having((e) => e.statusCode, 'statusCode', 409)
+              .having((e) => e.errorCode, 'errorCode', 'ROOM_FULL'),
+        ),
+      );
+    });
+
+    test('joinRoom handles non-JSON error response', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('Internal Server Error', 500);
+      });
+
+      final service = RoomApiService(
+        apiBaseUrl: 'http://localhost:8080',
+        client: mockClient,
+      );
+
+      expect(
+        () => service.joinRoom('ABCD', 'Alice', 'test-hash'),
+        throwsA(
+          isA<RoomApiException>()
+              .having((e) => e.statusCode, 'statusCode', 500)
+              .having(
+                (e) => e.message,
+                'message',
+                'Server error (500)',
+              ),
+        ),
+      );
+    });
+  });
 }

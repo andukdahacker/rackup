@@ -53,7 +53,7 @@ func (h *Handler) Upgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pc := room.NewPlayerConn(conn, claims.DeviceIDHash)
+	pc := room.NewPlayerConn(conn, claims.DeviceIDHash, claims.DisplayName)
 
 	if err := rm.AddPlayer(claims.DeviceIDHash, pc); err != nil {
 		slog.Warn("failed to add player to room", "room", claims.RoomCode, "error", err)

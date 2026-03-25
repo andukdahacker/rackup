@@ -10,25 +10,32 @@ import (
 
 // PlayerConn wraps a WebSocket connection for a player.
 type PlayerConn struct {
-	mu         sync.Mutex
-	conn       *websocket.Conn
-	deviceHash string
-	outbound   chan []byte
-	closed     bool
+	mu          sync.Mutex
+	conn        *websocket.Conn
+	deviceHash  string
+	displayName string
+	outbound    chan []byte
+	closed      bool
 }
 
 // NewPlayerConn creates a PlayerConn wrapping the given WebSocket connection.
-func NewPlayerConn(conn *websocket.Conn, deviceHash string) *PlayerConn {
+func NewPlayerConn(conn *websocket.Conn, deviceHash, displayName string) *PlayerConn {
 	return &PlayerConn{
-		conn:       conn,
-		deviceHash: deviceHash,
-		outbound:   make(chan []byte, 64),
+		conn:        conn,
+		deviceHash:  deviceHash,
+		displayName: displayName,
+		outbound:    make(chan []byte, 64),
 	}
 }
 
 // DeviceHash returns the player's device ID hash.
 func (pc *PlayerConn) DeviceHash() string {
 	return pc.deviceHash
+}
+
+// DisplayName returns the player's display name.
+func (pc *PlayerConn) DisplayName() string {
+	return pc.displayName
 }
 
 // ReadMessage reads a single text message from the WebSocket.

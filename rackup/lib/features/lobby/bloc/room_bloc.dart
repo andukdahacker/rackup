@@ -20,6 +20,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         _config = config,
         super(const RoomInitial()) {
     on<CreateRoom>(_onCreateRoom);
+    on<JoinRoom>(_onJoinRoom);
+    on<ResetRoom>(_onResetRoom);
   }
 
   final DeviceIdentityService _deviceIdentityService;
@@ -55,5 +57,47 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         ),
       );
     }
+  }
+
+  Future<void> _onJoinRoom(
+    JoinRoom event,
+    Emitter<RoomState> emit,
+  ) async {
+    emit(const RoomJoining());
+
+    try {
+      final deviceIdHash = _deviceIdentityService.getHashedDeviceId();
+      final response = await _roomApiService.joinRoom(
+        event.code,
+        event.displayName,
+        deviceIdHash,
+      );
+
+      try {
+        await _webSocketCubit.connect(_config.wsBaseUrl, response.jwt);
+      } on Object {
+        // WebSocket handles reconnection internally; emit success regardless.
+      }
+
+      emit(RoomCreatedState(roomCode: event.code, jwt: response.jwt));
+    } on RoomApiException catch (e) {
+      final message = switch (e.errorCode) {
+        'ROOM_NOT_FOUND' =>
+          'Room not found — check the code and try again',
+        'ROOM_FULL' => 'Room is full (max 8 players)',
+        _ => e.message,
+      };
+      emit(RoomError(message: message));
+    } on Exception {
+      emit(
+        const RoomError(
+          message: 'Connection failed — check your internet and try again.',
+        ),
+      );
+    }
+  }
+
+  void _onResetRoom(ResetRoom event, Emitter<RoomState> emit) {
+    emit(const RoomInitial());
   }
 }

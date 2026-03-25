@@ -66,18 +66,85 @@ class RoomApiService {
       message: errorMessage,
     );
   }
+  /// Joins an existing room by sending the room code, display name, and
+  /// hashed device ID to the server.
+  ///
+  /// Implements single automatic retry on network error before throwing.
+  Future<JoinRoomResponse> joinRoom(
+    String code,
+    String displayName,
+    String deviceIdHash,
+  ) async {
+    try {
+      return await _postJoinRoom(code, displayName, deviceIdHash);
+    } on SocketException {
+      return _postJoinRoom(code, displayName, deviceIdHash);
+    } on http.ClientException {
+      return _postJoinRoom(code, displayName, deviceIdHash);
+    } on TimeoutException {
+      return _postJoinRoom(code, displayName, deviceIdHash);
+    }
+  }
+
+  Future<JoinRoomResponse> _postJoinRoom(
+    String code,
+    String displayName,
+    String deviceIdHash,
+  ) async {
+    final uri = Uri.parse('$apiBaseUrl/rooms/$code/join');
+    final response = await _client
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'deviceIdHash': deviceIdHash,
+            'displayName': displayName,
+          }),
+        )
+        .timeout(_requestTimeout);
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return JoinRoomResponse.fromJson(json);
+    }
+
+    // Parse error response.
+    String errorMessage;
+    String? errorCode;
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final payload = json['payload'] as Map<String, dynamic>?;
+      errorMessage = payload?['message'] as String? ?? 'Unknown error';
+      errorCode = payload?['code'] as String?;
+    } on FormatException {
+      errorMessage = 'Server error (${response.statusCode})';
+    }
+
+    throw RoomApiException(
+      statusCode: response.statusCode,
+      message: errorMessage,
+      errorCode: errorCode,
+    );
+  }
 }
 
 /// Exception thrown when a room API call fails.
 class RoomApiException implements Exception {
   /// Creates a [RoomApiException].
-  const RoomApiException({required this.statusCode, required this.message});
+  const RoomApiException({
+    required this.statusCode,
+    required this.message,
+    this.errorCode,
+  });
 
   /// The HTTP status code.
   final int statusCode;
 
   /// Human-readable error message.
   final String message;
+
+  /// Server error code (e.g., "ROOM_NOT_FOUND", "ROOM_FULL").
+  final String? errorCode;
 
   @override
   String toString() => 'RoomApiException($statusCode): $message';

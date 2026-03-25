@@ -58,6 +58,25 @@ class CreateRoomResponse {
   final String jwt;
 }
 
+/// Response from POST /rooms/:code/join — room joining.
+/// SYNC WITH: rackup-server/internal/handler/http.go (joinRoomResponse)
+class JoinRoomResponse {
+  /// Creates a [JoinRoomResponse].
+  const JoinRoomResponse({required this.jwt});
+
+  /// Creates from JSON map.
+  factory JoinRoomResponse.fromJson(Map<String, dynamic> json) {
+    final jwt = json['jwt'];
+    if (jwt is! String) {
+      throw const FormatException('Invalid JoinRoomResponse: missing jwt');
+    }
+    return JoinRoomResponse(jwt: jwt);
+  }
+
+  /// The JWT for WebSocket authentication.
+  final String jwt;
+}
+
 /// Error response payload.
 class ErrorResponse {
   /// Creates an [ErrorResponse].

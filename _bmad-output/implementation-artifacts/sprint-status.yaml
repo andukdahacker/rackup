@@ -36,6 +36,7 @@
 
 generated: 2026-03-23
 last_updated: 2026-03-25
+# Story 1-6 context created: 2026-03-25
 # Story 1-5 started: 2026-03-25
 # Story 1-4 completed: 2026-03-25
 project: rackup
@@ -56,7 +57,7 @@ development_status:
   1-3-design-system-and-theme: review
   1-4-device-identity-and-app-home-screen: done
   1-5-room-creation: done
-  1-6-join-room-via-code: backlog
+  1-6-join-room-via-code: done
   1-7-join-room-via-deep-link: backlog
   1-8-accessibility-audit-and-compliance: backlog
   epic-1-retrospective: optional
