@@ -5,9 +5,26 @@ import 'package:rackup/core/theme/rackup_spacing.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
 
 /// The app's home screen with Create Room and Join Room actions.
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   /// Creates a [HomePage].
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _navigating = false;
+
+  Future<void> _navigate(String path) async {
+    if (_navigating) return;
+    _navigating = true;
+    try {
+      await context.push(path);
+    } finally {
+      if (mounted) setState(() => _navigating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +56,7 @@ class HomePage extends StatelessWidget {
                 height: RackUpSpacing.primaryButtonHeight,
                 child: _PrimaryButton(
                   label: 'Create Room',
-                  onPressed: () => context.push('/create'),
+                  onPressed: () => _navigate('/create'),
                 ),
               ),
               const SizedBox(height: RackUpSpacing.spaceMd),
@@ -48,7 +65,7 @@ class HomePage extends StatelessWidget {
                 height: RackUpSpacing.primaryButtonHeight,
                 child: _SecondaryButton(
                   label: 'Join Room',
-                  onPressed: () => context.push('/join'),
+                  onPressed: () => _navigate('/join'),
                 ),
               ),
               const SizedBox(height: RackUpSpacing.spaceXl),
@@ -68,16 +85,16 @@ class _PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: RackUpColors.madeGreen,
-      borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
-      child: InkWell(
-        onTap: onPressed,
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: RackUpColors.madeGreen,
         borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
-        child: Center(
-          child: Semantics(
-            button: true,
-            label: '$label button',
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
+          child: Center(
             child: Text(
               label,
               style: RackUpTypography.bodyLg.copyWith(
@@ -101,24 +118,24 @@ class _SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: RackUpColors.textPrimary,
-          width: 1.5,
-        ),
-        borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
-        child: InkWell(
-          onTap: onPressed,
+    return Semantics(
+      button: true,
+      label: label,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: RackUpColors.textPrimary,
+            width: RackUpSpacing.borderWidth,
+          ),
           borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
-          child: Center(
-            child: Semantics(
-              button: true,
-              label: '$label button',
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
+            child: Center(
               child: Text(
                 label,
                 style: RackUpTypography.bodyLg.copyWith(

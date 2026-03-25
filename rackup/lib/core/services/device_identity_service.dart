@@ -25,15 +25,28 @@ class DeviceIdentityService {
   Future<void> init() async {
     _deviceId = _prefs.getString(_key);
     if (_deviceId == null) {
-      _deviceId = const Uuid().v4();
-      await _prefs.setString(_key, _deviceId!);
+      final newId = const Uuid().v4();
+      final saved = await _prefs.setString(_key, newId);
+      if (!saved) {
+        throw StateError(
+          'Failed to persist device ID to SharedPreferences',
+        );
+      }
+      _deviceId = newId;
     }
   }
 
   /// Returns the raw local UUID. For local use only — never transmit this.
+  ///
+  /// Throws [StateError] if [init] has not been called.
   String getDeviceId() {
-    assert(_deviceId != null, 'DeviceIdentityService.init() must be called');
-    return _deviceId!;
+    final id = _deviceId;
+    if (id == null) {
+      throw StateError(
+        'DeviceIdentityService.init() must be called before getDeviceId()',
+      );
+    }
+    return id;
   }
 
   /// Returns the SHA-256 hex digest of the device UUID.

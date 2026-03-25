@@ -25,4 +25,7 @@ abstract final class RackUpSpacing {
 
   /// Primary action button minimum height — 64dp, full-width.
   static const double primaryButtonHeight = 64;
+
+  /// Standard border width for outlined buttons and dividers.
+  static const double borderWidth = 1.5;
 }
