@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rackup/core/config/app_config.dart';
 import 'package:rackup/core/routing/app_router.dart';
+import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
@@ -9,16 +10,28 @@ import 'package:rackup/l10n/l10n.dart';
 
 /// The root application widget.
 class App extends StatelessWidget {
-  /// Creates an [App] with the given [config].
-  const App({required this.config, super.key});
+  /// Creates an [App] with the given [config] and [deviceIdentityService].
+  const App({
+    required this.config,
+    required this.deviceIdentityService,
+    super.key,
+  });
 
   /// The environment configuration for this flavor.
   final AppConfig config;
 
+  /// The device identity service for anonymous device identification.
+  final DeviceIdentityService deviceIdentityService;
+
   @override
   Widget build(BuildContext context) {
-    return RepositoryProvider<AppConfig>.value(
-      value: config,
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<AppConfig>.value(value: config),
+        RepositoryProvider<DeviceIdentityService>.value(
+          value: deviceIdentityService,
+        ),
+      ],
       child: MaterialApp.router(
         theme: ThemeData(
           brightness: Brightness.dark,

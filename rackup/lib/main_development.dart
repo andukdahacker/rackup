@@ -3,5 +3,10 @@ import 'package:rackup/bootstrap.dart';
 import 'package:rackup/core/config/dev_config.dart';
 
 Future<void> main() async {
-  await bootstrap(() => const App(config: DevConfig()));
+  await bootstrap(
+    (deviceIdentityService) => App(
+      config: const DevConfig(),
+      deviceIdentityService: deviceIdentityService,
+    ),
+  );
 }
