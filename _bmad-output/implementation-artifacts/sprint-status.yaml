@@ -35,7 +35,8 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-23
-last_updated: 2026-03-25
+last_updated: 2026-03-27
+# Story 1-7 context created: 2026-03-25
 # Story 1-6 context created: 2026-03-25
 # Story 1-5 started: 2026-03-25
 # Story 1-4 completed: 2026-03-25
@@ -58,7 +59,7 @@ development_status:
   1-4-device-identity-and-app-home-screen: done
   1-5-room-creation: done
   1-6-join-room-via-code: done
-  1-7-join-room-via-deep-link: backlog
+  1-7-join-room-via-deep-link: done
   1-8-accessibility-audit-and-compliance: backlog
   epic-1-retrospective: optional
 

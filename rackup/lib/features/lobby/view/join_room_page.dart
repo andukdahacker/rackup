@@ -16,7 +16,14 @@ import 'package:rackup/features/lobby/view/widgets/room_code_display.dart';
 /// with retry on failure.
 class JoinRoomPage extends StatelessWidget {
   /// Creates a [JoinRoomPage].
-  const JoinRoomPage({super.key});
+  ///
+  /// When [initialCode] is provided (from a deep link), the room code fields
+  /// are pre-filled and set as read-only. The display name field receives
+  /// focus instead.
+  const JoinRoomPage({this.initialCode, super.key});
+
+  /// Optional room code from a deep link (e.g. `/join/ABCD`).
+  final String? initialCode;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +39,7 @@ class JoinRoomPage extends StatelessWidget {
             RoomInitial() || RoomError() => _JoinFormView(
                 errorMessage:
                     state is RoomError ? state.message : null,
+                initialCode: initialCode,
               ),
             RoomJoining() || RoomCreating() => const _LoadingView(),
             RoomCreatedState() => _SuccessView(roomCode: state.roomCode),
@@ -43,9 +51,10 @@ class JoinRoomPage extends StatelessWidget {
 }
 
 class _JoinFormView extends StatefulWidget {
-  const _JoinFormView({this.errorMessage});
+  const _JoinFormView({this.errorMessage, this.initialCode});
 
   final String? errorMessage;
+  final String? initialCode;
 
   @override
   State<_JoinFormView> createState() => _JoinFormViewState();
@@ -57,12 +66,22 @@ class _JoinFormViewState extends State<_JoinFormView> {
   late final List<FocusNode> _keyListenerFocusNodes;
   late final TextEditingController _nameController;
   late final FocusNode _nameFocusNode;
+  bool _codeReadOnly = false;
+  bool _hasInitialCode = false;
 
   String get _code =>
       _codeControllers.map((c) => c.text).join().toUpperCase();
 
   bool get _isValid =>
       _code.length == 4 && _nameController.text.trim().isNotEmpty;
+
+  /// Whether the initial code from a deep link is valid
+  /// (exactly 4 alpha chars).
+  static bool _isValidInitialCode(String? code) {
+    if (code == null || code.length != 4) return false;
+    return RegExp(r'^[a-zA-Z]{4}$')
+        .hasMatch(code);
+  }
 
   @override
   void initState() {
@@ -73,10 +92,35 @@ class _JoinFormViewState extends State<_JoinFormView> {
     _nameController = TextEditingController();
     _nameFocusNode = FocusNode();
 
+    // Pre-fill code from deep link if valid.
+    if (_isValidInitialCode(widget.initialCode)) {
+      _hasInitialCode = true;
+      final code = widget.initialCode!.toUpperCase();
+      for (var i = 0; i < 4; i++) {
+        _codeControllers[i].text = code[i];
+      }
+      // Only set read-only when there's no error (fresh deep link arrival).
+      if (widget.errorMessage == null) {
+        _codeReadOnly = true;
+      }
+      // Focus the name field instead of the first code field.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _nameFocusNode.requestFocus();
+      });
+    }
+
     for (final controller in _codeControllers) {
       controller.addListener(_onChanged);
     }
     _nameController.addListener(_onChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _JoinFormView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.errorMessage != null && _codeReadOnly) {
+      setState(() => _codeReadOnly = false);
+    }
   }
 
   @override
@@ -115,7 +159,7 @@ class _JoinFormViewState extends State<_JoinFormView> {
           children: [
             const Spacer(flex: 2),
             Text(
-              'Enter Room Code',
+              _hasInitialCode ? 'Join via Link' : 'Enter Room Code',
               style: RackUpTypography.displaySm.copyWith(
                 color: RackUpColors.textPrimary,
               ),
@@ -136,6 +180,7 @@ class _JoinFormViewState extends State<_JoinFormView> {
                       controller: _codeControllers[i],
                       focusNode: _codeFocusNodes[i],
                       keyListenerFocusNode: _keyListenerFocusNodes[i],
+                      readOnly: _codeReadOnly,
                       onChanged: (value) {
                         if (value.isNotEmpty && i < 3) {
                           _codeFocusNodes[i + 1].requestFocus();
@@ -239,6 +284,7 @@ class _CodeCharField extends StatelessWidget {
     required this.keyListenerFocusNode,
     required this.onChanged,
     required this.onBackspace,
+    this.readOnly = false,
   });
 
   final TextEditingController controller;
@@ -246,6 +292,7 @@ class _CodeCharField extends StatelessWidget {
   final FocusNode keyListenerFocusNode;
   final ValueChanged<String> onChanged;
   final VoidCallback onBackspace;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -260,11 +307,14 @@ class _CodeCharField extends StatelessWidget {
       child: TextField(
         controller: controller,
         focusNode: focusNode,
+        readOnly: readOnly,
         maxLength: 1,
         textAlign: TextAlign.center,
         textCapitalization: TextCapitalization.characters,
         style: RackUpTypography.displaySm.copyWith(
-          color: RackUpColors.textPrimary,
+          color: readOnly
+              ? RackUpColors.textSecondary
+              : RackUpColors.textPrimary,
         ),
         inputFormatters: [
           FilteringTextInputFormatter.allow(RegExp('[a-zA-Z]')),

@@ -58,5 +58,32 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    // Deep link route: rackup.app/join/CODE pre-fills the room code.
+    // TODO(phase-1.5): Deferred deep linking — preserve room code through
+    // App Store install. Requires server-side redirect page at
+    // rackup.app/join/:code or third-party service (Branch/custom).
+    // MVP handles app-already-installed case only.
+    GoRoute(
+      path: '/join/:code',
+      builder: (context, state) {
+        final wsCubit = WebSocketCubit();
+        final code = state.pathParameters['code'];
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<WebSocketCubit>.value(value: wsCubit),
+            BlocProvider<RoomBloc>(
+              create: (context) => RoomBloc(
+                deviceIdentityService:
+                    context.read<DeviceIdentityService>(),
+                roomApiService: context.read<RoomApiService>(),
+                webSocketCubit: wsCubit,
+                config: context.read<AppConfig>(),
+              ),
+            ),
+          ],
+          child: JoinRoomPage(initialCode: code),
+        );
+      },
+    ),
   ],
 );

@@ -27,10 +27,10 @@ void main() {
     when(() => bloc.state).thenReturn(const RoomInitial());
   });
 
-  Widget buildSubject() {
+  Widget buildSubject({String? initialCode}) {
     return BlocProvider<RoomBloc>.value(
       value: bloc,
-      child: const JoinRoomPage(),
+      child: JoinRoomPage(initialCode: initialCode),
     );
   }
 
@@ -110,6 +110,120 @@ void main() {
       expect(find.text('Joined!'), findsOneWidget);
       expect(find.text('ABCD'), findsOneWidget);
       expect(find.text('Waiting for game to start...'), findsOneWidget);
+    });
+
+    group('deep link pre-fill (initialCode)', () {
+      testWidgets('pre-fills code fields with initialCode characters',
+          (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: 'ABCD'));
+
+        final textFields = find.byType(TextField);
+        // First 4 TextFields are code fields.
+        for (var i = 0; i < 4; i++) {
+          final field = tester.widget<TextField>(textFields.at(i));
+          expect(field.controller!.text, 'ABCD'[i]);
+        }
+      });
+
+      testWidgets('code fields are read-only when initialCode is provided',
+          (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: 'ABCD'));
+
+        final textFields = find.byType(TextField);
+        // First 4 TextFields are code fields.
+        for (var i = 0; i < 4; i++) {
+          final field = tester.widget<TextField>(textFields.at(i));
+          expect(field.readOnly, isTrue);
+        }
+      });
+
+      testWidgets('display name field has focus when initialCode is provided',
+          (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: 'ABCD'));
+        await tester.pumpAndSettle();
+
+        final textFields = find.byType(TextField);
+        // The 5th TextField is the display name field.
+        final nameField = tester.widget<TextField>(textFields.last);
+        expect(nameField.focusNode!.hasFocus, isTrue);
+      });
+
+      testWidgets('heading shows "Join via Link" with initialCode',
+          (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: 'ABCD'));
+
+        expect(find.text('Join via Link'), findsOneWidget);
+        expect(find.text('Enter Room Code'), findsNothing);
+      });
+
+      testWidgets('on error state, code fields become editable again',
+          (tester) async {
+        when(() => bloc.state).thenReturn(
+          const RoomError(message: 'Room not found'),
+        );
+
+        await tester.pumpApp(buildSubject(initialCode: 'ABCD'));
+
+        final textFields = find.byType(TextField);
+        // Code fields should be editable on error.
+        for (var i = 0; i < 4; i++) {
+          final field = tester.widget<TextField>(textFields.at(i));
+          expect(field.readOnly, isFalse);
+        }
+      });
+
+      testWidgets(
+          'heading still shows "Join via Link" on error with initialCode',
+          (tester) async {
+        when(() => bloc.state).thenReturn(
+          const RoomError(message: 'Room not found'),
+        );
+
+        await tester.pumpApp(buildSubject(initialCode: 'ABCD'));
+
+        // Heading should stay "Join via Link" even on error when deep
+        // link was used — only the code fields unlock, not the heading.
+        expect(find.text('Join via Link'), findsOneWidget);
+        expect(find.text('Enter Room Code'), findsNothing);
+      });
+
+      testWidgets(
+          'invalid initialCode (wrong length) is ignored — manual entry',
+          (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: '12'));
+
+        expect(find.text('Enter Room Code'), findsOneWidget);
+        // Code fields should be empty.
+        final textFields = find.byType(TextField);
+        for (var i = 0; i < 4; i++) {
+          final field = tester.widget<TextField>(textFields.at(i));
+          expect(field.controller!.text, isEmpty);
+        }
+      });
+
+      testWidgets(
+          'invalid initialCode (too long) is ignored — manual entry',
+          (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: 'ABCDE'));
+
+        expect(find.text('Enter Room Code'), findsOneWidget);
+      });
+
+      testWidgets('lowercase initialCode is uppercased', (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: 'abcd'));
+
+        final textFields = find.byType(TextField);
+        for (var i = 0; i < 4; i++) {
+          final field = tester.widget<TextField>(textFields.at(i));
+          expect(field.controller!.text, 'ABCD'[i]);
+        }
+      });
+
+      testWidgets('non-alpha initialCode is ignored', (tester) async {
+        await tester.pumpApp(buildSubject(initialCode: 'AB1D'));
+
+        expect(find.text('Enter Room Code'), findsOneWidget);
+      });
     });
   });
 }

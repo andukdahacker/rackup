@@ -25,6 +25,26 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Deep link handling for rackup.app/join/:code URLs.
+                 Server-side requirement (deferred): An assetlinks.json file must be
+                 hosted at https://rackup.app/.well-known/assetlinks.json for verified
+                 App Links in production. Required JSON structure:
+                 [{
+                   "relation": ["delegate_permission/common.handle_all_urls"],
+                   "target": {
+                     "namespace": "android_app",
+                     "package_name": "com.rackup.app.rackup",
+                     "sha256_cert_fingerprints": ["<SHA256_FINGERPRINT>"]
+                   }
+                 }]
+                 For development, unverified deep links still work — Android will
+                 prompt the user to choose an app. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="rackup.app" android:pathPrefix="/join/"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
