@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_spacing.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
@@ -73,14 +74,24 @@ class _LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(color: RackUpColors.streakGold),
-          SizedBox(height: RackUpSpacing.spaceMd),
-          Text('Creating room...', style: RackUpTypography.body),
-        ],
+    return Center(
+      child: Semantics(
+        liveRegion: true,
+        label: 'Creating room',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ExcludeSemantics(
+              child: CircularProgressIndicator(color: RackUpColors.streakGold),
+            ),
+            const SizedBox(height: RackUpSpacing.spaceMd),
+            Text(
+              'Creating room...',
+              style: RackUpTypography.body,
+              textScaler: ClampedTextScaler.of(context, TextRole.body),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -106,6 +117,7 @@ class _SuccessView extends StatelessWidget {
               style: RackUpTypography.displaySm.copyWith(
                 color: RackUpColors.textPrimary,
               ),
+              textScaler: ClampedTextScaler.of(context, TextRole.display),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: RackUpSpacing.spaceXl),
@@ -116,6 +128,7 @@ class _SuccessView extends StatelessWidget {
               style: RackUpTypography.body.copyWith(
                 color: RackUpColors.textSecondary,
               ),
+              textScaler: ClampedTextScaler.of(context, TextRole.body),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: RackUpSpacing.spaceXl),
@@ -164,6 +177,8 @@ class _ShareButton extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
+              textScaler:
+                  ClampedTextScaler.of(context, TextRole.buttonLabel),
             ),
           ),
         ),
@@ -187,18 +202,24 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              color: RackUpColors.missedRed,
-              size: 48,
+            const ExcludeSemantics(
+              child: Icon(
+                Icons.error_outline,
+                color: RackUpColors.missedRed,
+                size: 48,
+              ),
             ),
             const SizedBox(height: RackUpSpacing.spaceMd),
-            Text(
-              message,
-              style: RackUpTypography.body.copyWith(
-                color: RackUpColors.missedRed,
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                message,
+                style: RackUpTypography.body.copyWith(
+                  color: RackUpColors.missedRed,
+                ),
+                textScaler: ClampedTextScaler.of(context, TextRole.body),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: RackUpSpacing.spaceLg),
             SizedBox(
@@ -231,6 +252,10 @@ class _ErrorView extends StatelessWidget {
                             fontFamily: RackUpFontFamilies.display,
                             fontWeight: FontWeight.w700,
                             color: RackUpColors.textPrimary,
+                          ),
+                          textScaler: ClampedTextScaler.of(
+                            context,
+                            TextRole.buttonLabel,
                           ),
                         ),
                       ),

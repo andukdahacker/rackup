@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
 
@@ -12,13 +13,18 @@ class RoomCodeDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      roomCode,
-      style: RackUpTypography.displayMd.copyWith(
-        color: RackUpColors.streakGold,
-        letterSpacing: 12,
+    return Semantics(
+      label: 'Room code: ${roomCode.split('').join(' ')}',
+      excludeSemantics: true,
+      child: Text(
+        roomCode,
+        style: RackUpTypography.displayMd.copyWith(
+          color: RackUpColors.streakGold,
+          letterSpacing: 12,
+        ),
+        textScaler: ClampedTextScaler.of(context, TextRole.display),
+        textAlign: TextAlign.center,
       ),
-      textAlign: TextAlign.center,
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_spacing.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
@@ -37,10 +38,14 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             children: [
               const Spacer(flex: 2),
-              const Text(
-                'Turn pool night into chaos',
-                style: RackUpTypography.displayLg,
-                textAlign: TextAlign.center,
+              Semantics(
+                header: true,
+                child: Text(
+                  'Turn pool night into chaos',
+                  style: RackUpTypography.displayLg,
+                  textScaler: ClampedTextScaler.of(context, TextRole.display),
+                  textAlign: TextAlign.center,
+                ),
               ),
               const SizedBox(height: RackUpSpacing.spaceLg),
               Text(
@@ -48,6 +53,7 @@ class _HomePageState extends State<HomePage> {
                 style: RackUpTypography.body.copyWith(
                   color: RackUpColors.textSecondary,
                 ),
+                textScaler: ClampedTextScaler.of(context, TextRole.body),
                 textAlign: TextAlign.center,
               ),
               const Spacer(flex: 3),
@@ -102,6 +108,8 @@ class _PrimaryButton extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
+              textScaler:
+                  ClampedTextScaler.of(context, TextRole.buttonLabel),
             ),
           ),
         ),
@@ -143,6 +151,8 @@ class _SecondaryButton extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   color: RackUpColors.textPrimary,
                 ),
+                textScaler:
+                    ClampedTextScaler.of(context, TextRole.buttonLabel),
               ),
             ),
           ),

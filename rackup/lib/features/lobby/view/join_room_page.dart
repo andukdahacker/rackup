@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_spacing.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
@@ -158,12 +159,16 @@ class _JoinFormViewState extends State<_JoinFormView> {
         child: Column(
           children: [
             const Spacer(flex: 2),
-            Text(
-              _hasInitialCode ? 'Join via Link' : 'Enter Room Code',
-              style: RackUpTypography.displaySm.copyWith(
-                color: RackUpColors.textPrimary,
+            Semantics(
+              header: true,
+              child: Text(
+                _hasInitialCode ? 'Join via Link' : 'Enter Room Code',
+                style: RackUpTypography.displaySm.copyWith(
+                  color: RackUpColors.textPrimary,
+                ),
+                textScaler: ClampedTextScaler.of(context, TextRole.display),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: RackUpSpacing.spaceXl),
             // Room code input: 4 separate fields.
@@ -176,25 +181,31 @@ class _JoinFormViewState extends State<_JoinFormView> {
                   ),
                   child: SizedBox(
                     width: 48,
-                    child: _CodeCharField(
-                      controller: _codeControllers[i],
-                      focusNode: _codeFocusNodes[i],
-                      keyListenerFocusNode: _keyListenerFocusNodes[i],
+                    child: Semantics(
+                      label: 'Room code digit ${i + 1} of 4',
+                      textField: true,
                       readOnly: _codeReadOnly,
-                      onChanged: (value) {
-                        if (value.isNotEmpty && i < 3) {
-                          _codeFocusNodes[i + 1].requestFocus();
-                        }
-                        if (value.isNotEmpty && i == 3) {
-                          _nameFocusNode.requestFocus();
-                        }
-                      },
-                      onBackspace: () {
-                        if (_codeControllers[i].text.isEmpty && i > 0) {
-                          _codeControllers[i - 1].clear();
-                          _codeFocusNodes[i - 1].requestFocus();
-                        }
-                      },
+                      excludeSemantics: true,
+                      child: _CodeCharField(
+                        controller: _codeControllers[i],
+                        focusNode: _codeFocusNodes[i],
+                        keyListenerFocusNode: _keyListenerFocusNodes[i],
+                        readOnly: _codeReadOnly,
+                        onChanged: (value) {
+                          if (value.isNotEmpty && i < 3) {
+                            _codeFocusNodes[i + 1].requestFocus();
+                          }
+                          if (value.isNotEmpty && i == 3) {
+                            _nameFocusNode.requestFocus();
+                          }
+                        },
+                        onBackspace: () {
+                          if (_codeControllers[i].text.isEmpty && i > 0) {
+                            _codeControllers[i - 1].clear();
+                            _codeFocusNodes[i - 1].requestFocus();
+                          }
+                        },
+                      ),
                     ),
                   ),
                 );
@@ -202,12 +213,16 @@ class _JoinFormViewState extends State<_JoinFormView> {
             ),
             if (widget.errorMessage != null) ...[
               const SizedBox(height: RackUpSpacing.spaceMd),
-              Text(
-                widget.errorMessage!,
-                style: RackUpTypography.caption.copyWith(
-                  color: RackUpColors.missedRed,
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  widget.errorMessage!,
+                  style: RackUpTypography.caption.copyWith(
+                    color: RackUpColors.missedRed,
+                  ),
+                  textScaler: ClampedTextScaler.of(context, TextRole.body),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
             const SizedBox(height: RackUpSpacing.spaceLg),
@@ -220,6 +235,10 @@ class _JoinFormViewState extends State<_JoinFormView> {
                 color: RackUpColors.textPrimary,
               ),
               decoration: InputDecoration(
+                labelText: 'Display name',
+                labelStyle: RackUpTypography.body.copyWith(
+                  color: RackUpColors.textSecondary,
+                ),
                 hintText: 'Enter your name',
                 hintStyle: RackUpTypography.body.copyWith(
                   color: RackUpColors.textSecondary,
@@ -242,7 +261,7 @@ class _JoinFormViewState extends State<_JoinFormView> {
               height: RackUpSpacing.primaryButtonHeight,
               child: Semantics(
                 button: true,
-                label: 'Join',
+                label: 'Join room',
                 child: Material(
                   color:
                       _isValid ? RackUpColors.madeGreen : RackUpColors.canvas,
@@ -261,6 +280,10 @@ class _JoinFormViewState extends State<_JoinFormView> {
                           color: _isValid
                               ? Colors.white
                               : RackUpColors.textSecondary,
+                        ),
+                        textScaler: ClampedTextScaler.of(
+                          context,
+                          TextRole.buttonLabel,
                         ),
                       ),
                     ),
@@ -349,14 +372,23 @@ class _LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(color: RackUpColors.streakGold),
-          SizedBox(height: RackUpSpacing.spaceMd),
-          Text('Joining room...', style: RackUpTypography.body),
-        ],
+    return Center(
+      child: Semantics(
+        liveRegion: true,
+        label: 'Joining room',
+        excludeSemantics: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: RackUpColors.streakGold),
+            const SizedBox(height: RackUpSpacing.spaceMd),
+            Text(
+              'Joining room...',
+              style: RackUpTypography.body,
+              textScaler: ClampedTextScaler.of(context, TextRole.body),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -382,6 +414,7 @@ class _SuccessView extends StatelessWidget {
               style: RackUpTypography.displaySm.copyWith(
                 color: RackUpColors.textPrimary,
               ),
+              textScaler: ClampedTextScaler.of(context, TextRole.display),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: RackUpSpacing.spaceXl),
@@ -392,6 +425,7 @@ class _SuccessView extends StatelessWidget {
               style: RackUpTypography.body.copyWith(
                 color: RackUpColors.textSecondary,
               ),
+              textScaler: ClampedTextScaler.of(context, TextRole.body),
               textAlign: TextAlign.center,
             ),
             const Spacer(flex: 3),
