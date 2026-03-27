@@ -77,6 +77,77 @@ class JoinRoomResponse {
   final String jwt;
 }
 
+/// Wire payload for a single player in lobby messages.
+class LobbyPlayerPayload {
+  /// Creates a [LobbyPlayerPayload].
+  const LobbyPlayerPayload({
+    required this.displayName,
+    required this.deviceIdHash,
+    required this.slot,
+    required this.isHost,
+    required this.status,
+  });
+
+  /// Creates from JSON map.
+  factory LobbyPlayerPayload.fromJson(Map<String, dynamic> json) {
+    return LobbyPlayerPayload(
+      displayName: json['displayName'] as String,
+      deviceIdHash: json['deviceIdHash'] as String,
+      slot: json['slot'] as int,
+      isHost: json['isHost'] as bool,
+      status: json['status'] as String,
+    );
+  }
+
+  /// The player's display name.
+  final String displayName;
+
+  /// SHA-256 hash of the player's device ID.
+  final String deviceIdHash;
+
+  /// 1-based slot index (1–8).
+  final int slot;
+
+  /// Whether this player is the host.
+  final bool isHost;
+
+  /// Status string (e.g., "joining", "writing", "ready").
+  final String status;
+}
+
+/// Wire payload for lobby.room_state — full room snapshot.
+class LobbyRoomStatePayload {
+  /// Creates a [LobbyRoomStatePayload].
+  const LobbyRoomStatePayload({
+    required this.roomCode,
+    required this.hostDeviceIdHash,
+    required this.players,
+  });
+
+  /// Creates from JSON map.
+  factory LobbyRoomStatePayload.fromJson(Map<String, dynamic> json) {
+    final playersList = (json['players'] as List<dynamic>)
+        .map(
+          (e) => LobbyPlayerPayload.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
+    return LobbyRoomStatePayload(
+      roomCode: json['roomCode'] as String,
+      hostDeviceIdHash: json['hostDeviceIdHash'] as String,
+      players: playersList,
+    );
+  }
+
+  /// The room code.
+  final String roomCode;
+
+  /// The host's device ID hash.
+  final String hostDeviceIdHash;
+
+  /// All players currently in the room.
+  final List<LobbyPlayerPayload> players;
+}
+
 /// Error response payload.
 class ErrorResponse {
   /// Creates an [ErrorResponse].

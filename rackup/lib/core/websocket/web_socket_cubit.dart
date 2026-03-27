@@ -18,8 +18,13 @@ class WebSocketCubit extends Cubit<WebSocketState> {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   final ReconnectionHandler _reconnectionHandler = ReconnectionHandler();
+  final StreamController<Message> _messageController =
+      StreamController<Message>.broadcast();
   String? _wsUrl;
   String? _jwt;
+
+  /// Stream of parsed [Message] objects received from the WebSocket.
+  Stream<Message> get messages => _messageController.stream;
 
   /// Connects to the WebSocket server.
   Future<void> connect(String wsUrl, String jwt) async {
@@ -50,13 +55,20 @@ class WebSocketCubit extends Cubit<WebSocketState> {
         onError: _onError,
         onDone: _onDone,
       );
-    } on Object {
+    } on Exception {
       _attemptReconnect();
     }
   }
 
   void _onMessage(dynamic data) {
-    // Messages are dispatched by listeners. The cubit just maintains state.
+    if (data is String) {
+      try {
+        final message = Message.fromRawJson(data);
+        _messageController.add(message);
+      } on FormatException {
+        // Malformed messages are silently dropped.
+      }
+    }
   }
 
   void _onError(Object error) {
@@ -123,6 +135,7 @@ class WebSocketCubit extends Cubit<WebSocketState> {
     _subscription = null;
     await _channel?.sink.close();
     _channel = null;
+    await _messageController.close();
     return super.close();
   }
 }

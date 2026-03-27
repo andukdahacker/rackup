@@ -153,23 +153,30 @@ func TestAddPlayer_BroadcastsPlayerJoined(t *testing.T) {
 		t.Fatalf("AddPlayer failed: %v", err)
 	}
 
-	// Drain the self-join broadcast (player1 joining triggers broadcast to player1).
+	// Drain the room_state sent to player1 on join (no self-join broadcast anymore).
 	drainCtx, drainCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer drainCancel()
-	_, _, err := serverConn1.Read(drainCtx)
+	_, selfData, err := serverConn1.Read(drainCtx)
 	if err != nil {
-		t.Fatalf("failed to drain self-join broadcast: %v", err)
+		t.Fatalf("failed to drain room_state: %v", err)
+	}
+	var selfMsg protocol.Message
+	if err := json.Unmarshal(selfData, &selfMsg); err != nil {
+		t.Fatalf("failed to unmarshal self room_state: %v", err)
+	}
+	if selfMsg.Action != protocol.ActionLobbyRoomState {
+		t.Errorf("expected first message to be room_state, got %q", selfMsg.Action)
 	}
 
-	// Add second player — should trigger broadcast to player1.
-	clientConn2, _ := newWSPair(t)
+	// Add second player — should trigger player_joined broadcast to player1.
+	clientConn2, serverConn2 := newWSPair(t)
 	pc2 := NewPlayerConn(clientConn2, "player2", "Bob")
 	go pc2.WritePump(pumpCtx)
 	if err := r.AddPlayer("player2", pc2); err != nil {
 		t.Fatalf("AddPlayer failed: %v", err)
 	}
 
-	// Read the broadcast from player1's server connection.
+	// Read the player_joined broadcast from player1's server connection.
 	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer readCancel()
 
@@ -187,19 +194,268 @@ func TestAddPlayer_BroadcastsPlayerJoined(t *testing.T) {
 		t.Errorf("expected action %q, got %q", protocol.ActionLobbyPlayerJoined, msg.Action)
 	}
 
-	var payload map[string]interface{}
+	var payload protocol.LobbyPlayerPayload
 	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 		t.Fatalf("failed to unmarshal payload: %v", err)
 	}
 
-	if payload["displayName"] != "Bob" {
-		t.Errorf("expected displayName 'Bob', got %v", payload["displayName"])
+	if payload.DisplayName != "Bob" {
+		t.Errorf("expected displayName 'Bob', got %v", payload.DisplayName)
 	}
+	if payload.DeviceIDHash != "player2" {
+		t.Errorf("expected deviceIdHash 'player2', got %v", payload.DeviceIDHash)
+	}
+	if payload.Slot != 2 {
+		t.Errorf("expected slot 2, got %d", payload.Slot)
+	}
+	if payload.IsHost {
+		t.Errorf("expected isHost false for non-host player")
+	}
+	if payload.Status != "joining" {
+		t.Errorf("expected status 'joining', got %q", payload.Status)
+	}
+
+	// Verify player2 received room_state (not player_joined for itself).
+	p2ReadCtx, p2ReadCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer p2ReadCancel()
+	_, p2Data, err := serverConn2.Read(p2ReadCtx)
+	if err != nil {
+		t.Fatalf("failed to read room_state from player2: %v", err)
+	}
+	var p2Msg protocol.Message
+	if err := json.Unmarshal(p2Data, &p2Msg); err != nil {
+		t.Fatalf("failed to unmarshal player2 message: %v", err)
+	}
+	if p2Msg.Action != protocol.ActionLobbyRoomState {
+		t.Errorf("expected player2 to receive room_state, got %q", p2Msg.Action)
+	}
+}
+
+func TestSlotAssignment(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	// Add 3 players — each should get sequential slots.
+	for i := 0; i < 3; i++ {
+		conn, _ := newWSPair(t)
+		hash := string(rune('A'+i)) + "hash"
+		pc := NewPlayerConn(conn, hash, "Player"+string(rune('A'+i)))
+		if err := r.AddPlayer(hash, pc); err != nil {
+			t.Fatalf("AddPlayer %d failed: %v", i, err)
+		}
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.slotAssignments["Ahash"] != 1 {
+		t.Errorf("expected slot 1 for Ahash, got %d", r.slotAssignments["Ahash"])
+	}
+	if r.slotAssignments["Bhash"] != 2 {
+		t.Errorf("expected slot 2 for Bhash, got %d", r.slotAssignments["Bhash"])
+	}
+	if r.slotAssignments["Chash"] != 3 {
+		t.Errorf("expected slot 3 for Chash, got %d", r.slotAssignments["Chash"])
+	}
+}
+
+func TestSlotAssignment_PersistsAfterDisconnect(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	conn1, _ := newWSPair(t)
+	pc1 := NewPlayerConn(conn1, "player1", "Alice")
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Disconnect player.
+	r.RemovePlayer("player1")
+
+	r.mu.RLock()
+	slot := r.slotAssignments["player1"]
+	r.mu.RUnlock()
+
+	if slot != 1 {
+		t.Errorf("expected slot 1 to persist after disconnect, got %d", slot)
+	}
+
+	// Reconnect — should keep same slot.
+	conn2, _ := newWSPair(t)
+	pc2 := NewPlayerConn(conn2, "player1", "Alice")
+	if err := r.AddPlayer("player1", pc2); err != nil {
+		t.Fatalf("AddPlayer reconnect failed: %v", err)
+	}
+
+	r.mu.RLock()
+	slotAfterReconnect := r.slotAssignments["player1"]
+	r.mu.RUnlock()
+
+	if slotAfterReconnect != 1 {
+		t.Errorf("expected slot 1 after reconnect, got %d", slotAfterReconnect)
+	}
+}
+
+func TestGetRoomState(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	conn1, _ := newWSPair(t)
+	pc1 := NewPlayerConn(conn1, "host-hash", "Host")
+	if err := r.AddPlayer("host-hash", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	conn2, _ := newWSPair(t)
+	pc2 := NewPlayerConn(conn2, "player2", "Bob")
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	msg, err := r.GetRoomState()
+	if err != nil {
+		t.Fatalf("GetRoomState failed: %v", err)
+	}
+
+	if msg.Action != protocol.ActionLobbyRoomState {
+		t.Errorf("expected action %q, got %q", protocol.ActionLobbyRoomState, msg.Action)
+	}
+
+	var payload protocol.LobbyRoomStatePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("failed to unmarshal room state: %v", err)
+	}
+
+	if payload.RoomCode != "TEST" {
+		t.Errorf("expected roomCode 'TEST', got %q", payload.RoomCode)
+	}
+	if payload.HostDeviceIDHash != "host-hash" {
+		t.Errorf("expected hostDeviceIdHash 'host-hash', got %q", payload.HostDeviceIDHash)
+	}
+	if len(payload.Players) != 2 {
+		t.Fatalf("expected 2 players, got %d", len(payload.Players))
+	}
+
+	// Check that host is marked correctly.
+	hostFound := false
+	for _, p := range payload.Players {
+		if p.DeviceIDHash == "host-hash" {
+			hostFound = true
+			if !p.IsHost {
+				t.Errorf("host player should have isHost=true")
+			}
+		} else if p.DeviceIDHash == "player2" {
+			if p.IsHost {
+				t.Errorf("non-host player should have isHost=false")
+			}
+		}
+	}
+	if !hostFound {
+		t.Errorf("host player not found in room state")
+	}
+}
+
+func TestRemovePlayer_BroadcastsPlayerLeft(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	// Add two players.
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "player1", "Alice")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Drain room_state sent to player1 on join.
+	drainCtx1, drainCancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel1()
+	_, _, _ = serverConn1.Read(drainCtx1)
+
+	clientConn2, _ := newWSPair(t)
+	pc2 := NewPlayerConn(clientConn2, "player2", "Bob")
+	go pc2.WritePump(pumpCtx)
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Drain player_joined broadcast from player1's connection.
+	drainCtx2, drainCancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel2()
+	_, _, _ = serverConn1.Read(drainCtx2)
+
+	// Remove player2 — should broadcast player_left to player1.
+	r.RemovePlayer("player2")
+
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
+
+	_, data, err := serverConn1.Read(readCtx)
+	if err != nil {
+		t.Fatalf("failed to read player_left broadcast: %v", err)
+	}
+
+	var msg protocol.Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if msg.Action != protocol.ActionLobbyPlayerLeft {
+		t.Errorf("expected action %q, got %q", protocol.ActionLobbyPlayerLeft, msg.Action)
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("failed to unmarshal payload: %v", err)
+	}
+
 	if payload["deviceIdHash"] != "player2" {
 		t.Errorf("expected deviceIdHash 'player2', got %v", payload["deviceIdHash"])
 	}
-	if int(payload["playerCount"].(float64)) != 2 {
-		t.Errorf("expected playerCount 2, got %v", payload["playerCount"])
+}
+
+func TestSlotReuse_AfterExpiration(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	r := NewRoom("SLOT", "host-hash", cancel, nil)
+	defer cancel()
+
+	// Add player and assign slot 1.
+	conn1, _ := newWSPair(t)
+	pc1 := NewPlayerConn(conn1, "player1", "Alice")
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Disconnect and expire the player.
+	r.RemovePlayer("player1")
+	r.mu.Lock()
+	r.disconnected["player1"] = time.Now().Add(-2 * ReconnectWindow) // force expiry
+	r.mu.Unlock()
+	r.expireDisconnectedPlayers()
+
+	// Verify slot was reclaimed.
+	r.mu.RLock()
+	_, hasSlot := r.slotAssignments["player1"]
+	r.mu.RUnlock()
+	if hasSlot {
+		t.Errorf("expected slot assignment to be reclaimed after expiry")
+	}
+
+	// New player should get slot 1 (reused).
+	conn2, _ := newWSPair(t)
+	pc2 := NewPlayerConn(conn2, "player2", "Bob")
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	r.mu.RLock()
+	slot := r.slotAssignments["player2"]
+	r.mu.RUnlock()
+	if slot != 1 {
+		t.Errorf("expected reused slot 1, got %d", slot)
 	}
 }
 

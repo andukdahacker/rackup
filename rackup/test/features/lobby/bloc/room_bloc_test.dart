@@ -2,6 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/config/app_config.dart';
+import 'package:rackup/core/models/player.dart';
 import 'package:rackup/core/protocol/messages.dart' show CreateRoomResponse, JoinRoomResponse;
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/services/room_api_service.dart';
@@ -202,6 +203,114 @@ void main() {
               'Connection failed — check your internet and try again.',
         ),
       ],
+    );
+  });
+
+  group('Lobby events', () {
+    const player1 = Player(
+      displayName: 'Jake',
+      deviceIdHash: 'hash1',
+      slot: 1,
+      isHost: true,
+      status: PlayerStatus.joining,
+    );
+
+    const player2 = Player(
+      displayName: 'Danny',
+      deviceIdHash: 'hash2',
+      slot: 2,
+      isHost: false,
+      status: PlayerStatus.joining,
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'RoomStateReceived transitions from RoomCreatedState to RoomLobby',
+      build: buildBloc,
+      seed: () => const RoomCreatedState(roomCode: 'ABCD', jwt: 'jwt-123'),
+      act: (bloc) => bloc.add(
+        const RoomStateReceived(
+          players: [player1],
+          roomCode: 'ABCD',
+        ),
+      ),
+      expect: () => [
+        const RoomLobby(
+          players: [player1],
+          roomCode: 'ABCD',
+          jwt: 'jwt-123',
+        ),
+      ],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerJoined adds player to lobby list',
+      build: buildBloc,
+      seed: () => const RoomLobby(
+        players: [player1],
+        roomCode: 'ABCD',
+        jwt: 'jwt-123',
+      ),
+      act: (bloc) => bloc.add(const PlayerJoined(player: player2)),
+      expect: () => [
+        const RoomLobby(
+          players: [player1, player2],
+          roomCode: 'ABCD',
+          jwt: 'jwt-123',
+        ),
+      ],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerJoined replaces existing player on reconnect (no duplicate)',
+      build: buildBloc,
+      seed: () => const RoomLobby(
+        players: [player1, player2],
+        roomCode: 'ABCD',
+        jwt: 'jwt-123',
+      ),
+      act: (bloc) => bloc.add(const PlayerJoined(player: player2)),
+      // Same player list equals same state — Equatable prevents emit.
+      expect: () => <RoomState>[],
+      verify: (bloc) {
+        final state = bloc.state as RoomLobby;
+        // Verify no duplicates.
+        final count = state.players
+            .where((p) => p.deviceIdHash == 'hash2')
+            .length;
+        expect(count, 1);
+      },
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerLeft removes player from lobby list',
+      build: buildBloc,
+      seed: () => const RoomLobby(
+        players: [player1, player2],
+        roomCode: 'ABCD',
+        jwt: 'jwt-123',
+      ),
+      act: (bloc) => bloc.add(const PlayerLeft(deviceIdHash: 'hash2')),
+      expect: () => [
+        const RoomLobby(
+          players: [player1],
+          roomCode: 'ABCD',
+          jwt: 'jwt-123',
+        ),
+      ],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerLeft does nothing when not in RoomLobby state',
+      build: buildBloc,
+      act: (bloc) => bloc.add(const PlayerLeft(deviceIdHash: 'hash2')),
+      expect: () => <RoomState>[],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerJoined does nothing when not in RoomLobby state',
+      build: buildBloc,
+      act: (bloc) => bloc.add(const PlayerJoined(player: player1)),
+      expect: () => <RoomState>[],
     );
   });
 }

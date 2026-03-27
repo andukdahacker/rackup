@@ -100,16 +100,15 @@ void main() {
       ).called(1);
     });
 
-    testWidgets('shows success state', (tester) async {
+    testWidgets('shows loading on success (navigates to lobby)', (tester) async {
       when(() => bloc.state).thenReturn(
         const RoomCreatedState(roomCode: 'ABCD', jwt: 'test-jwt'),
       );
 
       await tester.pumpApp(buildSubject());
 
-      expect(find.text('Joined!'), findsOneWidget);
-      expect(find.text('ABCD'), findsOneWidget);
-      expect(find.text('Waiting for game to start...'), findsOneWidget);
+      // RoomCreatedState now shows loading while navigating to /lobby.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
     group('deep link pre-fill (initialCode)', () {

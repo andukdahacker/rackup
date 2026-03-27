@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:rackup/core/models/player.dart';
 
 /// States for the RoomBloc.
 sealed class RoomState extends Equatable {
@@ -35,6 +36,27 @@ class RoomCreatedState extends RoomState {
 
   @override
   List<Object?> get props => [roomCode, jwt];
+}
+
+/// Lobby state — room is active and showing player list.
+class RoomLobby extends RoomState {
+  const RoomLobby({
+    required this.players,
+    required this.roomCode,
+    required this.jwt,
+  });
+
+  /// All players currently in the lobby.
+  final List<Player> players;
+
+  /// The 4-character room code.
+  final String roomCode;
+
+  /// The JWT for WebSocket authentication.
+  final String jwt;
+
+  @override
+  List<Object?> get props => [players, roomCode, jwt];
 }
 
 /// Room creation failed.

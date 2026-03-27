@@ -31,28 +31,30 @@ type Action struct {
 
 // Room represents an active game room.
 type Room struct {
-	mu             sync.RWMutex
-	code           string
-	hostDeviceHash string
-	players        map[string]*PlayerConn
-	disconnected   map[string]time.Time // per-player reconnection hold
-	createdAt      time.Time
-	actions        chan Action
-	cancel         context.CancelFunc
-	manager        *RoomManager // back-reference for self-cleanup
+	mu              sync.RWMutex
+	code            string
+	hostDeviceHash  string
+	players         map[string]*PlayerConn
+	disconnected    map[string]time.Time // per-player reconnection hold
+	slotAssignments map[string]int // persistent slot assignments (survives disconnect)
+	createdAt       time.Time
+	actions         chan Action
+	cancel          context.CancelFunc
+	manager         *RoomManager // back-reference for self-cleanup
 }
 
 // NewRoom creates a new Room. The cancel func is used to stop the room goroutine.
 func NewRoom(code, hostDeviceHash string, cancel context.CancelFunc, manager *RoomManager) *Room {
 	return &Room{
-		code:           code,
-		hostDeviceHash: hostDeviceHash,
-		players:        make(map[string]*PlayerConn),
-		disconnected:   make(map[string]time.Time),
-		createdAt:      time.Now(),
-		actions:        make(chan Action, actionChannelSize),
-		cancel:         cancel,
-		manager:        manager,
+		code:            code,
+		hostDeviceHash:  hostDeviceHash,
+		players:         make(map[string]*PlayerConn),
+		disconnected:    make(map[string]time.Time),
+		slotAssignments: make(map[string]int),
+		createdAt:       time.Now(),
+		actions:         make(chan Action, actionChannelSize),
+		cancel:          cancel,
+		manager:         manager,
 	}
 }
 
@@ -107,12 +109,14 @@ func (r *Room) expireDisconnectedPlayers() {
 		if now.Sub(disconnectTime) >= ReconnectWindow {
 			delete(r.disconnected, deviceHash)
 			delete(r.players, deviceHash)
+			delete(r.slotAssignments, deviceHash)
 			slog.Info("player reconnection window expired", "code", r.code, "device", deviceHash)
 		}
 	}
 }
 
 // AddPlayer adds a player connection to the room.
+// Atomically sends room_state to the new player and broadcasts player_joined to others.
 // Returns an error if the room is full.
 func (r *Room) AddPlayer(deviceIDHash string, conn *PlayerConn) error {
 	r.mu.Lock()
@@ -124,6 +128,8 @@ func (r *Room) AddPlayer(deviceIDHash string, conn *PlayerConn) error {
 		old.Close()
 		r.players[deviceIDHash] = conn
 		delete(r.disconnected, deviceIDHash)
+		r.sendRoomStateToPlayerLocked(conn)
+		r.broadcastPlayerJoinedToOthersLocked(deviceIDHash, conn)
 		return nil
 	}
 
@@ -132,31 +138,135 @@ func (r *Room) AddPlayer(deviceIDHash string, conn *PlayerConn) error {
 		r.players[deviceIDHash] = conn
 		delete(r.disconnected, deviceIDHash)
 		slog.Info("player reconnected from hold", "code", r.code, "device", deviceIDHash)
+		r.sendRoomStateToPlayerLocked(conn)
+		r.broadcastPlayerJoinedToOthersLocked(deviceIDHash, conn)
 		return nil
 	}
 
-	if len(r.players) >= MaxPlayers {
+	if len(r.players)+len(r.disconnected) >= MaxPlayers {
 		return ErrRoomFull
 	}
 
-	r.players[deviceIDHash] = conn
-	playerCount := len(r.players)
-	slog.Info("player joined", "code", r.code, "device", deviceIDHash, "count", playerCount)
+	// Assign slot — find lowest available (1-8).
+	if _, hasSlot := r.slotAssignments[deviceIDHash]; !hasSlot {
+		slot, err := r.findAvailableSlotLocked()
+		if err != nil {
+			return err
+		}
+		r.slotAssignments[deviceIDHash] = slot
+	}
 
-	// Broadcast lobby.player_joined to all connected players.
-	payload, err := json.Marshal(map[string]interface{}{
-		"displayName":  conn.DisplayName(),
-		"deviceIdHash": conn.DeviceHash(),
-		"playerCount":  playerCount,
-	})
-	if err == nil {
-		r.broadcastLocked(protocol.Message{
-			Action:  protocol.ActionLobbyPlayerJoined,
-			Payload: payload,
+	r.players[deviceIDHash] = conn
+	slog.Info("player joined", "code", r.code, "device", deviceIDHash, "count", len(r.players))
+
+	// Send room state to the new player first (within lock, guarantees ordering).
+	r.sendRoomStateToPlayerLocked(conn)
+	// Then broadcast player_joined to other players only.
+	r.broadcastPlayerJoinedToOthersLocked(deviceIDHash, conn)
+
+	return nil
+}
+
+// findAvailableSlotLocked returns the lowest available slot (1-8).
+// Must be called with r.mu held.
+func (r *Room) findAvailableSlotLocked() (int, error) {
+	used := make(map[int]bool, len(r.slotAssignments))
+	for _, slot := range r.slotAssignments {
+		used[slot] = true
+	}
+	for i := 1; i <= MaxPlayers; i++ {
+		if !used[i] {
+			return i, nil
+		}
+	}
+	return 0, ErrRoomFull
+}
+
+// buildRoomStateLocked builds the room state message.
+// Must be called with r.mu held.
+func (r *Room) buildRoomStateLocked() (protocol.Message, error) {
+	players := make([]protocol.LobbyPlayerPayload, 0, len(r.players))
+	for deviceHash, conn := range r.players {
+		slot := r.slotAssignments[deviceHash]
+		isHost := deviceHash == r.hostDeviceHash
+		players = append(players, protocol.LobbyPlayerPayload{
+			DisplayName:  conn.DisplayName(),
+			DeviceIDHash: deviceHash,
+			Slot:         slot,
+			IsHost:       isHost,
+			Status:       "joining",
 		})
 	}
 
-	return nil
+	payload, err := json.Marshal(protocol.LobbyRoomStatePayload{
+		RoomCode:         r.code,
+		HostDeviceIDHash: r.hostDeviceHash,
+		Players:          players,
+	})
+	if err != nil {
+		return protocol.Message{}, err
+	}
+
+	return protocol.Message{
+		Action:  protocol.ActionLobbyRoomState,
+		Payload: payload,
+	}, nil
+}
+
+// sendRoomStateToPlayerLocked sends the current room state to a single player.
+// Must be called with r.mu held.
+func (r *Room) sendRoomStateToPlayerLocked(conn *PlayerConn) {
+	msg, err := r.buildRoomStateLocked()
+	if err != nil {
+		slog.Error("failed to build room state", "code", r.code, "error", err)
+		return
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		slog.Error("failed to marshal room state", "code", r.code, "error", err)
+		return
+	}
+	if writeErr := conn.WriteMessage(data); writeErr != nil {
+		slog.Warn("failed to send room state to player", "code", r.code, "error", writeErr)
+	}
+}
+
+// broadcastPlayerJoinedToOthersLocked broadcasts lobby.player_joined to all
+// connected players except the joining player.
+// Must be called with r.mu held.
+func (r *Room) broadcastPlayerJoinedToOthersLocked(deviceIDHash string, conn *PlayerConn) {
+	slot := r.slotAssignments[deviceIDHash]
+	isHost := deviceIDHash == r.hostDeviceHash
+
+	payload, err := json.Marshal(protocol.LobbyPlayerPayload{
+		DisplayName:  conn.DisplayName(),
+		DeviceIDHash: conn.DeviceHash(),
+		Slot:         slot,
+		IsHost:       isHost,
+		Status:       "joining",
+	})
+	if err != nil {
+		slog.Error("failed to marshal player_joined payload", "code", r.code, "error", err)
+		return
+	}
+
+	data, err := json.Marshal(protocol.Message{
+		Action:  protocol.ActionLobbyPlayerJoined,
+		Payload: payload,
+	})
+	if err != nil {
+		slog.Error("failed to marshal player_joined message", "code", r.code, "error", err)
+		return
+	}
+
+	for dh, pc := range r.players {
+		if dh == deviceIDHash {
+			continue
+		}
+		if writeErr := pc.WriteMessage(data); writeErr != nil {
+			slog.Warn("failed to send player_joined", "code", r.code, "device", dh, "error", writeErr)
+		}
+	}
 }
 
 // RemovePlayer marks a player as disconnected with a reconnection hold window.
@@ -168,6 +278,17 @@ func (r *Room) RemovePlayer(deviceIDHash string) {
 	delete(r.players, deviceIDHash)
 	r.disconnected[deviceIDHash] = time.Now()
 	slog.Info("player disconnected, holding slot", "code", r.code, "device", deviceIDHash, "count", len(r.players))
+
+	// Broadcast lobby.player_left to remaining connected players.
+	payload, err := json.Marshal(map[string]string{
+		"deviceIdHash": deviceIDHash,
+	})
+	if err == nil {
+		r.broadcastLocked(protocol.Message{
+			Action:  protocol.ActionLobbyPlayerLeft,
+			Payload: payload,
+		})
+	}
 
 	// If no connected players remain, start the empty-room timer via action channel.
 	if len(r.players) == 0 {
@@ -189,6 +310,13 @@ func (r *Room) PlayerCount() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return len(r.players)
+}
+
+// GetRoomState returns a lobby.room_state message with the full room snapshot.
+func (r *Room) GetRoomState() (protocol.Message, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.buildRoomStateLocked()
 }
 
 // BroadcastMessage sends a protocol message to all connected players.

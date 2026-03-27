@@ -21,6 +21,9 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         super(const RoomInitial()) {
     on<CreateRoom>(_onCreateRoom);
     on<JoinRoom>(_onJoinRoom);
+    on<RoomStateReceived>(_onRoomStateReceived);
+    on<PlayerJoined>(_onPlayerJoined);
+    on<PlayerLeft>(_onPlayerLeft);
     on<ResetRoom>(_onResetRoom);
   }
 
@@ -94,6 +97,55 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
           message: 'Connection failed — check your internet and try again.',
         ),
       );
+    }
+  }
+
+  void _onRoomStateReceived(
+    RoomStateReceived event,
+    Emitter<RoomState> emit,
+  ) {
+    final currentState = state;
+    final String? jwt = switch (currentState) {
+      RoomCreatedState(:final jwt) => jwt,
+      RoomLobby(:final jwt) => jwt,
+      _ => null,
+    };
+    // Only transition to lobby if we have a valid JWT.
+    if (jwt == null) return;
+    emit(RoomLobby(
+      players: event.players,
+      roomCode: event.roomCode,
+      jwt: jwt,
+    ));
+  }
+
+  void _onPlayerJoined(PlayerJoined event, Emitter<RoomState> emit) {
+    final currentState = state;
+    if (currentState is RoomLobby) {
+      // Replace if player already exists (reconnect), otherwise add.
+      final updatedPlayers = currentState.players
+          .where((p) => p.deviceIdHash != event.player.deviceIdHash)
+          .toList()
+        ..add(event.player);
+      emit(RoomLobby(
+        players: updatedPlayers,
+        roomCode: currentState.roomCode,
+        jwt: currentState.jwt,
+      ));
+    }
+  }
+
+  void _onPlayerLeft(PlayerLeft event, Emitter<RoomState> emit) {
+    final currentState = state;
+    if (currentState is RoomLobby) {
+      final updatedPlayers = currentState.players
+          .where((p) => p.deviceIdHash != event.deviceIdHash)
+          .toList();
+      emit(RoomLobby(
+        players: updatedPlayers,
+        roomCode: currentState.roomCode,
+        jwt: currentState.jwt,
+      ));
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_spacing.dart';
@@ -8,7 +9,6 @@ import 'package:rackup/core/theme/rackup_typography.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/bloc/room_event.dart';
 import 'package:rackup/features/lobby/bloc/room_state.dart';
-import 'package:rackup/features/lobby/view/widgets/room_code_display.dart';
 
 /// The room joining screen.
 ///
@@ -28,27 +28,34 @@ class JoinRoomPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Join Room',
-          textScaler: ClampedTextScaler.of(context, TextRole.display),
+    return BlocListener<RoomBloc, RoomState>(
+      listenWhen: (_, current) => current is RoomCreatedState,
+      listener: (context, state) {
+        context.go('/lobby');
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            'Join Room',
+            textScaler: ClampedTextScaler.of(context, TextRole.display),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: BlocBuilder<RoomBloc, RoomState>(
-        builder: (context, state) {
-          return switch (state) {
-            RoomInitial() || RoomError() => _JoinFormView(
-                errorMessage:
-                    state is RoomError ? state.message : null,
-                initialCode: initialCode,
-              ),
-            RoomJoining() || RoomCreating() => const _LoadingView(),
-            RoomCreatedState() => _SuccessView(roomCode: state.roomCode),
-          };
-        },
+        body: BlocBuilder<RoomBloc, RoomState>(
+          builder: (context, state) {
+            return switch (state) {
+              RoomInitial() || RoomError() => _JoinFormView(
+                  errorMessage:
+                      state is RoomError ? state.message : null,
+                  initialCode: initialCode,
+                ),
+              RoomJoining() || RoomCreating() => const _LoadingView(),
+              RoomCreatedState() => const _LoadingView(),
+              RoomLobby() => const SizedBox.shrink(),
+            };
+          },
+        ),
       ),
     );
   }
@@ -397,44 +404,3 @@ class _LoadingView extends StatelessWidget {
   }
 }
 
-class _SuccessView extends StatelessWidget {
-  const _SuccessView({required this.roomCode});
-
-  final String roomCode;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: RackUpSpacing.spaceXl,
-        ),
-        child: Column(
-          children: [
-            const Spacer(flex: 2),
-            Text(
-              'Joined!',
-              style: RackUpTypography.displaySm.copyWith(
-                color: RackUpColors.textPrimary,
-              ),
-              textScaler: ClampedTextScaler.of(context, TextRole.display),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: RackUpSpacing.spaceXl),
-            RoomCodeDisplay(roomCode: roomCode),
-            const SizedBox(height: RackUpSpacing.spaceLg),
-            Text(
-              'Waiting for game to start...',
-              style: RackUpTypography.body.copyWith(
-                color: RackUpColors.textSecondary,
-              ),
-              textScaler: ClampedTextScaler.of(context, TextRole.body),
-              textAlign: TextAlign.center,
-            ),
-            const Spacer(flex: 3),
-          ],
-        ),
-      ),
-    );
-  }
-}

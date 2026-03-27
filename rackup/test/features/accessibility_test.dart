@@ -13,14 +13,20 @@ import 'package:rackup/features/home/view/home_page.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/bloc/room_event.dart';
 import 'package:rackup/features/lobby/bloc/room_state.dart';
+import 'package:rackup/core/websocket/web_socket_cubit.dart';
+import 'package:rackup/core/websocket/web_socket_state.dart';
 import 'package:rackup/features/lobby/view/create_room_page.dart';
 import 'package:rackup/features/lobby/view/join_room_page.dart';
+import 'package:rackup/features/lobby/view/lobby_page.dart';
 import 'package:rackup/l10n/l10n.dart';
 
 class _MockGoRouter extends Mock implements GoRouter {}
 
 class _MockRoomBloc extends MockBloc<RoomEvent, RoomState>
     implements RoomBloc {}
+
+class _MockWebSocketCubit extends MockCubit<WebSocketState>
+    implements WebSocketCubit {}
 
 /// Helper to pump a widget with full theme and game theme.
 Future<void> _pumpWithTheme(
@@ -228,16 +234,28 @@ void main() {
       roomBloc = _MockRoomBloc();
     });
 
-    testWidgets('Share Invite Link button has semantics', (tester) async {
+    testWidgets('Share Invite Link button has semantics in lobby', (tester) async {
       when(() => roomBloc.state).thenReturn(
-        const RoomCreatedState(roomCode: 'ABCD', jwt: 'jwt'),
+        const RoomLobby(
+          players: [],
+          roomCode: 'ABCD',
+          jwt: 'jwt',
+        ),
+      );
+
+      final mockWsCubit = _MockWebSocketCubit();
+      when(() => mockWsCubit.messages).thenAnswer(
+        (_) => const Stream.empty(),
       );
 
       await _pumpWithTheme(
         tester,
-        BlocProvider<RoomBloc>.value(
-          value: roomBloc,
-          child: const CreateRoomPage(),
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<RoomBloc>.value(value: roomBloc),
+            BlocProvider<WebSocketCubit>.value(value: mockWsCubit),
+          ],
+          child: const LobbyPage(),
         ),
       );
 
@@ -496,24 +514,35 @@ void main() {
     });
 
     testWidgets(
-        'Create Room success page renders without overflow at 2.0x text scale',
+        'Lobby page renders without overflow at 2.0x text scale',
         (tester) async {
       final bloc = _MockRoomBloc();
       when(() => bloc.state).thenReturn(
-        const RoomCreatedState(roomCode: 'ABCD', jwt: 'jwt'),
+        const RoomLobby(
+          players: [],
+          roomCode: 'ABCD',
+          jwt: 'jwt',
+        ),
+      );
+      final mockWsCubit = _MockWebSocketCubit();
+      when(() => mockWsCubit.messages).thenAnswer(
+        (_) => const Stream.empty(),
       );
 
       await _pumpWithTheme(
         tester,
-        BlocProvider<RoomBloc>.value(
-          value: bloc,
-          child: const CreateRoomPage(),
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<RoomBloc>.value(value: bloc),
+            BlocProvider<WebSocketCubit>.value(value: mockWsCubit),
+          ],
+          child: const LobbyPage(),
         ),
         textScaleFactor: 2,
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Room Created!'), findsOneWidget);
+      expect(find.text('ABCD'), findsOneWidget);
       expect(find.text('Share Invite Link'), findsOneWidget);
     });
   });

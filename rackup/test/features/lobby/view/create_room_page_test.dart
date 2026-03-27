@@ -56,16 +56,16 @@ void main() {
       expect(find.text('Creating room...'), findsOneWidget);
     });
 
-    testWidgets('shows room code on success', (tester) async {
+    testWidgets('shows loading on success (navigates to lobby)', (tester) async {
       when(() => roomBloc.state).thenReturn(
         const RoomCreatedState(roomCode: 'ABCD', jwt: 'jwt'),
       );
 
       await tester.pumpWidget(buildSubject());
 
-      expect(find.text('ABCD'), findsOneWidget);
-      expect(find.text('Room Created!'), findsOneWidget);
-      expect(find.text('Share Invite Link'), findsOneWidget);
+      // RoomCreatedState now shows loading while navigating to /lobby.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Creating room...'), findsOneWidget);
     });
 
     testWidgets('shows error with retry button', (tester) async {

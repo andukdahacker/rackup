@@ -55,16 +55,18 @@ func (h *Handler) Upgrade(w http.ResponseWriter, r *http.Request) {
 
 	pc := room.NewPlayerConn(conn, claims.DeviceIDHash, claims.DisplayName)
 
+	ctx := r.Context()
+
+	// Start write pump before AddPlayer so the outbound channel is being drained.
+	go pc.WritePump(ctx)
+
+	// AddPlayer atomically sends room_state to the new player and broadcasts
+	// player_joined to others — no separate GetRoomState call needed.
 	if err := rm.AddPlayer(claims.DeviceIDHash, pc); err != nil {
 		slog.Warn("failed to add player to room", "room", claims.RoomCode, "error", err)
 		conn.Close(websocket.StatusPolicyViolation, protocol.ErrRoomFull)
 		return
 	}
-
-	ctx := r.Context()
-
-	// Start write pump.
-	go pc.WritePump(ctx)
 
 	// Read pump — dispatches messages to room action channel.
 	go func() {

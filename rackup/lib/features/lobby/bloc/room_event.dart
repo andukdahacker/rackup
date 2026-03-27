@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:rackup/core/models/player.dart';
 
 /// Events for the RoomBloc.
 sealed class RoomEvent extends Equatable {
@@ -52,6 +53,45 @@ class RoomCreateFailed extends RoomEvent {
 /// WebSocket connection established after room creation.
 class WebSocketConnectedEvent extends RoomEvent {
   const WebSocketConnectedEvent();
+}
+
+/// Full room state received from server (lobby.room_state).
+class RoomStateReceived extends RoomEvent {
+  const RoomStateReceived({
+    required this.players,
+    required this.roomCode,
+  });
+
+  /// All players in the room.
+  final List<Player> players;
+
+  /// The room code.
+  final String roomCode;
+
+  @override
+  List<Object?> get props => [players, roomCode];
+}
+
+/// A new player joined the lobby (lobby.player_joined).
+class PlayerJoined extends RoomEvent {
+  const PlayerJoined({required this.player});
+
+  /// The player who joined.
+  final Player player;
+
+  @override
+  List<Object?> get props => [player];
+}
+
+/// A player left the lobby (lobby.player_left).
+class PlayerLeft extends RoomEvent {
+  const PlayerLeft({required this.deviceIdHash});
+
+  /// The device ID hash of the player who left.
+  final String deviceIdHash;
+
+  @override
+  List<Object?> get props => [deviceIdHash];
 }
 
 /// Resets the room state back to initial.

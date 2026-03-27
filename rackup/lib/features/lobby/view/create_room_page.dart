@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_spacing.dart';
@@ -7,8 +8,6 @@ import 'package:rackup/core/theme/rackup_typography.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/bloc/room_event.dart';
 import 'package:rackup/features/lobby/bloc/room_state.dart';
-import 'package:rackup/features/lobby/view/widgets/room_code_display.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// The room creation screen.
 ///
@@ -20,26 +19,31 @@ class CreateRoomPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Create Room',
-          textScaler: ClampedTextScaler.of(context, TextRole.display),
+    return BlocListener<RoomBloc, RoomState>(
+      listenWhen: (_, current) => current is RoomCreatedState,
+      listener: (context, state) {
+        context.go('/lobby');
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            'Create Room',
+            textScaler: ClampedTextScaler.of(context, TextRole.display),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: BlocBuilder<RoomBloc, RoomState>(
-        builder: (context, state) {
-          return switch (state) {
-            RoomInitial() => const _InitialView(),
-            RoomCreating() || RoomJoining() => const _LoadingView(),
-            RoomCreatedState() => _SuccessView(
-                roomCode: state.roomCode,
-              ),
-            RoomError() => _ErrorView(message: state.message),
-          };
-        },
+        body: BlocBuilder<RoomBloc, RoomState>(
+          builder: (context, state) {
+            return switch (state) {
+              RoomInitial() => const _InitialView(),
+              RoomCreating() || RoomJoining() => const _LoadingView(),
+              RoomCreatedState() => const _LoadingView(),
+              RoomLobby() => const SizedBox.shrink(),
+              RoomError() => _ErrorView(message: state.message),
+            };
+          },
+        ),
       ),
     );
   }
@@ -94,96 +98,6 @@ class _LoadingView extends StatelessWidget {
               textScaler: ClampedTextScaler.of(context, TextRole.body),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SuccessView extends StatelessWidget {
-  const _SuccessView({required this.roomCode});
-
-  final String roomCode;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: RackUpSpacing.spaceXl,
-        ),
-        child: Column(
-          children: [
-            const Spacer(flex: 2),
-            Text(
-              'Room Created!',
-              style: RackUpTypography.displaySm.copyWith(
-                color: RackUpColors.textPrimary,
-              ),
-              textScaler: ClampedTextScaler.of(context, TextRole.display),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: RackUpSpacing.spaceXl),
-            RoomCodeDisplay(roomCode: roomCode),
-            const SizedBox(height: RackUpSpacing.spaceLg),
-            Text(
-              'Share this code with your friends',
-              style: RackUpTypography.body.copyWith(
-                color: RackUpColors.textSecondary,
-              ),
-              textScaler: ClampedTextScaler.of(context, TextRole.body),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: RackUpSpacing.spaceXl),
-            SizedBox(
-              width: double.infinity,
-              height: RackUpSpacing.primaryButtonHeight,
-              child: _ShareButton(roomCode: roomCode),
-            ),
-            const Spacer(flex: 3),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ShareButton extends StatelessWidget {
-  const _ShareButton({required this.roomCode});
-
-  final String roomCode;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Share Invite Link',
-      child: Material(
-        color: RackUpColors.madeGreen,
-        borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
-        child: InkWell(
-          onTap: () async {
-            await SharePlus.instance.share(
-              ShareParams(
-                text: 'Join my RackUp game! '
-                    'Use code: $roomCode '
-                    'or tap: rackup.app/join/$roomCode',
-              ),
-            );
-          },
-          borderRadius: BorderRadius.circular(RackUpSpacing.spaceSm),
-          child: Center(
-            child: Text(
-              'Share Invite Link',
-              style: RackUpTypography.bodyLg.copyWith(
-                fontFamily: RackUpFontFamilies.display,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-              textScaler:
-                  ClampedTextScaler.of(context, TextRole.buttonLabel),
-            ),
-          ),
         ),
       ),
     );

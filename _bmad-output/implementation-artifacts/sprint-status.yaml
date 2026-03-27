@@ -36,6 +36,8 @@
 
 generated: 2026-03-23
 last_updated: 2026-03-27
+# Story 2-1 dev started: 2026-03-27
+# Story 2-1 context created: 2026-03-27
 # Story 1-8 completed: 2026-03-27
 # Story 1-8 context created: 2026-03-27
 # Story 1-7 context created: 2026-03-25
@@ -66,8 +68,8 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Pre-Game Lobby & Punishment Submission
-  epic-2: backlog
-  2-1-pre-game-lobby-display: backlog
+  epic-2: in-progress
+  2-1-pre-game-lobby-display: done
   2-2-punishment-submission: backlog
   2-3-game-configuration-and-start: backlog
   epic-2-retrospective: optional
