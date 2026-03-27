@@ -30,7 +30,10 @@ class JoinRoomPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Join Room'),
+        title: Text(
+          'Join Room',
+          textScaler: ClampedTextScaler.of(context, TextRole.display),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -180,7 +183,7 @@ class _JoinFormViewState extends State<_JoinFormView> {
                     left: i == 0 ? 0 : RackUpSpacing.spaceSm,
                   ),
                   child: SizedBox(
-                    width: 48,
+                    width: RackUpSpacing.minTapTarget,
                     child: Semantics(
                       label: 'Room code digit ${i + 1} of 4',
                       textField: true,

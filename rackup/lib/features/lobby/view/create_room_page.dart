@@ -22,7 +22,10 @@ class CreateRoomPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Room'),
+        title: Text(
+          'Create Room',
+          textScaler: ClampedTextScaler.of(context, TextRole.display),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),

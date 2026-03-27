@@ -10,8 +10,8 @@ abstract final class RackUpColors {
   static const Color canvas = Color(0xFF0F0E1A);
 
   // ── Semantic Colors ──
-  /// Green — made/success (#22C55E).
-  static const Color madeGreen = Color(0xFF22C55E);
+  /// Green — made/success (#16A34A).
+  static const Color madeGreen = Color(0xFF16A34A);
 
   /// Red — missed/danger (#EF4444).
   static const Color missedRed = Color(0xFFEF4444);

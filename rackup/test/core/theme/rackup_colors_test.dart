@@ -12,8 +12,8 @@ void main() {
     });
 
     group('semantic colors', () {
-      test('madeGreen is #22C55E', () {
-        expect(RackUpColors.madeGreen, const Color(0xFF22C55E));
+      test('madeGreen is #16A34A', () {
+        expect(RackUpColors.madeGreen, const Color(0xFF16A34A));
       });
 
       test('missedRed is #EF4444', () {

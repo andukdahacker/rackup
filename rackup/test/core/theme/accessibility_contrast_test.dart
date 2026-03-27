@@ -36,7 +36,7 @@ void main() {
           reason: 'textPrimary contrast ratio $ratio should be >= 7:1 (AAA)');
     });
 
-    test('madeGreen #22C55E on canvas meets AA (>= 4.5:1)', () {
+    test('madeGreen #16A34A on canvas meets AA (>= 4.5:1)', () {
       final ratio = _contrastRatio(RackUpColors.madeGreen, canvas);
       expect(ratio, greaterThanOrEqualTo(4.5),
           reason: 'madeGreen contrast ratio $ratio should be >= 4.5:1');
@@ -88,16 +88,12 @@ void main() {
       }
     });
 
-    test(
-      'white text on madeGreen button meets AA large text (>= 3:1)',
-      () {
-        final ratio = _contrastRatio(const Color(0xFFFFFFFF), RackUpColors.madeGreen);
-        expect(ratio, greaterThanOrEqualTo(3.0),
-            reason: 'white on madeGreen contrast ratio $ratio should be '
-                '>= 3:1 for large bold text');
-      },
-      skip: 'Pre-existing: white on #22C55E is 2.28:1 — needs design fix '
-          '(darken green or use dark text)',
-    );
+    test('white text on madeGreen button meets AA large text (>= 3:1)', () {
+      final ratio =
+          _contrastRatio(const Color(0xFFFFFFFF), RackUpColors.madeGreen);
+      expect(ratio, greaterThanOrEqualTo(3.0),
+          reason: 'white on madeGreen contrast ratio $ratio should be '
+              '>= 3:1 for large bold text');
+    });
   });
 }
