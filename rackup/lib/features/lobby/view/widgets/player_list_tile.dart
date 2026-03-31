@@ -153,12 +153,29 @@ class _PlayerListTileState extends State<PlayerListTile>
                   ),
                 ),
                 // Status indicator.
-                Text(
-                  statusText,
-                  style: RackUpTypography.caption.copyWith(
-                    color: _statusColor(player.status),
-                  ),
-                  textScaler: ClampedTextScaler.of(context, TextRole.body),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (player.status == PlayerStatus.ready)
+                      const Padding(
+                        padding: EdgeInsets.only(
+                          right: RackUpSpacing.spaceXs,
+                        ),
+                        child: Icon(
+                          Icons.check,
+                          color: RackUpColors.madeGreen,
+                          size: 16,
+                          semanticLabel: 'Ready checkmark',
+                        ),
+                      ),
+                    Text(
+                      statusText,
+                      style: RackUpTypography.caption.copyWith(
+                        color: _statusColor(player.status),
+                      ),
+                      textScaler: ClampedTextScaler.of(context, TextRole.body),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -171,12 +188,16 @@ class _PlayerListTileState extends State<PlayerListTile>
   static String _statusText(PlayerStatus status) {
     return switch (status) {
       PlayerStatus.joining => 'Joining...',
+      PlayerStatus.writing => 'Writing...',
+      PlayerStatus.ready => 'Ready',
     };
   }
 
   static Color _statusColor(PlayerStatus status) {
     return switch (status) {
       PlayerStatus.joining => RackUpColors.textSecondary,
+      PlayerStatus.writing => const Color(0xFFFFB347),
+      PlayerStatus.ready => RackUpColors.madeGreen,
     };
   }
 }

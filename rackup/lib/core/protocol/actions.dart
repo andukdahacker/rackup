@@ -11,7 +11,12 @@ abstract final class Actions {
   /// Full room state snapshot sent on WebSocket connect.
   static const String lobbyRoomState = 'lobby.room_state';
 
-  // Story 2.2: lobby.punishment_submitted — no handler in 2.1.
+  /// A player submitted a punishment.
+  static const String lobbyPunishmentSubmitted = 'lobby.punishment_submitted';
+
+  /// A player's lobby status changed.
+  static const String lobbyPlayerStatusChanged = 'lobby.player_status_changed';
+
   // Story 2.3: lobby.game_started — no handler in 2.1.
 
   /// A game turn was completed.

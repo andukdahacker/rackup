@@ -94,6 +94,34 @@ class PlayerLeft extends RoomEvent {
   List<Object?> get props => [deviceIdHash];
 }
 
+/// A player's lobby status changed (lobby.player_status_changed).
+class PlayerStatusChanged extends RoomEvent {
+  const PlayerStatusChanged({
+    required this.deviceIdHash,
+    required this.status,
+  });
+
+  /// The device ID hash of the player whose status changed.
+  final String deviceIdHash;
+
+  /// The new status.
+  final PlayerStatus status;
+
+  @override
+  List<Object?> get props => [deviceIdHash, status];
+}
+
+/// Player submitted a punishment.
+class PunishmentSubmitted extends RoomEvent {
+  const PunishmentSubmitted({required this.text});
+
+  /// The punishment text.
+  final String text;
+
+  @override
+  List<Object?> get props => [text];
+}
+
 /// Resets the room state back to initial.
 class ResetRoom extends RoomEvent {
   const ResetRoom();

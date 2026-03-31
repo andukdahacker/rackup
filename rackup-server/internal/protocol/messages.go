@@ -25,6 +25,17 @@ type LobbyRoomStatePayload struct {
 	Players          []LobbyPlayerPayload `json:"players"`
 }
 
+// PunishmentSubmitPayload is the client→server payload for punishment submission.
+type PunishmentSubmitPayload struct {
+	Text string `json:"text"`
+}
+
+// PlayerStatusChangedPayload is the server→client payload for status change broadcasts.
+type PlayerStatusChangedPayload struct {
+	DeviceIDHash string `json:"deviceIdHash"`
+	Status       string `json:"status"`
+}
+
 // ErrorPayload is the payload for action "error".
 type ErrorPayload struct {
 	Code    string `json:"code"`

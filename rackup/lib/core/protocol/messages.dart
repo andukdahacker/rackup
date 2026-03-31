@@ -148,6 +148,52 @@ class LobbyRoomStatePayload {
   final List<LobbyPlayerPayload> players;
 }
 
+/// Wire payload for client→server punishment submission.
+class PunishmentSubmitPayload {
+  /// Creates a [PunishmentSubmitPayload].
+  const PunishmentSubmitPayload({required this.text});
+
+  /// Creates from JSON map.
+  factory PunishmentSubmitPayload.fromJson(Map<String, dynamic> json) {
+    return PunishmentSubmitPayload(text: json['text'] as String);
+  }
+
+  /// The punishment text.
+  final String text;
+
+  /// Converts to JSON map.
+  Map<String, dynamic> toJson() => {'text': text};
+}
+
+/// Wire payload for server→client player status change broadcast.
+class PlayerStatusChangedPayload {
+  /// Creates a [PlayerStatusChangedPayload].
+  const PlayerStatusChangedPayload({
+    required this.deviceIdHash,
+    required this.status,
+  });
+
+  /// Creates from JSON map.
+  factory PlayerStatusChangedPayload.fromJson(Map<String, dynamic> json) {
+    return PlayerStatusChangedPayload(
+      deviceIdHash: json['deviceIdHash'] as String,
+      status: json['status'] as String,
+    );
+  }
+
+  /// SHA-256 hash of the player's device ID.
+  final String deviceIdHash;
+
+  /// Status string (e.g., "writing", "ready").
+  final String status;
+
+  /// Converts to JSON map.
+  Map<String, dynamic> toJson() => {
+        'deviceIdHash': deviceIdHash,
+        'status': status,
+      };
+}
+
 /// Error response payload.
 class ErrorResponse {
   /// Creates an [ErrorResponse].

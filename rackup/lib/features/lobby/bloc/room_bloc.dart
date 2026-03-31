@@ -1,5 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:rackup/core/config/app_config.dart';
+import 'package:rackup/core/models/player.dart';
+import 'package:rackup/core/protocol/actions.dart';
+import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/services/room_api_service.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
@@ -24,6 +27,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     on<RoomStateReceived>(_onRoomStateReceived);
     on<PlayerJoined>(_onPlayerJoined);
     on<PlayerLeft>(_onPlayerLeft);
+    on<PlayerStatusChanged>(_onPlayerStatusChanged);
+    on<PunishmentSubmitted>(_onPunishmentSubmitted);
     on<ResetRoom>(_onResetRoom);
   }
 
@@ -147,6 +152,36 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         jwt: currentState.jwt,
       ));
     }
+  }
+
+  void _onPlayerStatusChanged(
+    PlayerStatusChanged event,
+    Emitter<RoomState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is RoomLobby) {
+      final updatedPlayers = currentState.players.map((p) {
+        if (p.deviceIdHash == event.deviceIdHash) {
+          return p.copyWith(status: event.status);
+        }
+        return p;
+      }).toList();
+      emit(RoomLobby(
+        players: updatedPlayers,
+        roomCode: currentState.roomCode,
+        jwt: currentState.jwt,
+      ));
+    }
+  }
+
+  void _onPunishmentSubmitted(
+    PunishmentSubmitted event,
+    Emitter<RoomState> emit,
+  ) {
+    _webSocketCubit.sendMessage(Message(
+      action: Actions.lobbyPunishmentSubmitted,
+      payload: PunishmentSubmitPayload(text: event.text).toJson(),
+    ));
   }
 
   void _onResetRoom(ResetRoom event, Emitter<RoomState> emit) {

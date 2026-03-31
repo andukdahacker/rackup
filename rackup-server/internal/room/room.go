@@ -5,11 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ducdo/rackup-server/internal/protocol"
 )
+
+// validPlayerStatuses is the allowlist of accepted player status strings.
+var validPlayerStatuses = map[string]bool{
+	"joining": true,
+	"writing": true,
+	"ready":   true,
+}
 
 const (
 	// MaxPlayers is the maximum number of players per room (FR7).
@@ -31,30 +39,36 @@ type Action struct {
 
 // Room represents an active game room.
 type Room struct {
-	mu              sync.RWMutex
-	code            string
-	hostDeviceHash  string
-	players         map[string]*PlayerConn
-	disconnected    map[string]time.Time // per-player reconnection hold
-	slotAssignments map[string]int // persistent slot assignments (survives disconnect)
-	createdAt       time.Time
-	actions         chan Action
-	cancel          context.CancelFunc
-	manager         *RoomManager // back-reference for self-cleanup
+	mu                       sync.RWMutex
+	code                     string
+	hostDeviceHash           string
+	players                  map[string]*PlayerConn
+	disconnected             map[string]time.Time // per-player reconnection hold
+	slotAssignments          map[string]int       // persistent slot assignments (survives disconnect)
+	punishments              map[string]string     // deviceIdHash → punishment text
+	playerStatuses           map[string]string     // deviceIdHash → status string (default "joining")
+	punishmentPhaseStartedAt time.Time             // set when first player joins; used by Story 2.3
+	createdAt                time.Time
+	actions                  chan Action
+	cancel                   context.CancelFunc
+	manager                  *RoomManager // back-reference for self-cleanup
 }
 
 // NewRoom creates a new Room. The cancel func is used to stop the room goroutine.
 func NewRoom(code, hostDeviceHash string, cancel context.CancelFunc, manager *RoomManager) *Room {
 	return &Room{
-		code:            code,
-		hostDeviceHash:  hostDeviceHash,
-		players:         make(map[string]*PlayerConn),
-		disconnected:    make(map[string]time.Time),
-		slotAssignments: make(map[string]int),
-		createdAt:       time.Now(),
-		actions:         make(chan Action, actionChannelSize),
-		cancel:          cancel,
-		manager:         manager,
+		code:                     code,
+		hostDeviceHash:           hostDeviceHash,
+		players:                  make(map[string]*PlayerConn),
+		disconnected:             make(map[string]time.Time),
+		slotAssignments:          make(map[string]int),
+		punishments:              make(map[string]string),
+		playerStatuses:           make(map[string]string),
+		punishmentPhaseStartedAt: time.Now(),
+		createdAt:                time.Now(),
+		actions:                  make(chan Action, actionChannelSize),
+		cancel:                   cancel,
+		manager:                  manager,
 	}
 }
 
@@ -82,8 +96,12 @@ func (r *Room) Run(ctx context.Context) {
 			return
 		case action := <-r.actions:
 			slog.Debug("room action received", "code", r.code, "type", action.Type, "player", action.Player)
-			// Future stories will handle game actions here.
-			_ = action
+			switch action.Type {
+			case "client_message":
+				r.handleClientMessage(action.Player, action.Payload)
+			case "internal.check_empty":
+				// handled by emptyTimer logic below
+			}
 		case <-emptyTimer.C:
 			slog.Info("room timeout - all players disconnected", "code", r.code)
 			// Self-cleanup: remove from manager registry.
@@ -110,6 +128,8 @@ func (r *Room) expireDisconnectedPlayers() {
 			delete(r.disconnected, deviceHash)
 			delete(r.players, deviceHash)
 			delete(r.slotAssignments, deviceHash)
+			delete(r.punishments, deviceHash)
+			delete(r.playerStatuses, deviceHash)
 			slog.Info("player reconnection window expired", "code", r.code, "device", deviceHash)
 		}
 	}
@@ -189,12 +209,16 @@ func (r *Room) buildRoomStateLocked() (protocol.Message, error) {
 	for deviceHash, conn := range r.players {
 		slot := r.slotAssignments[deviceHash]
 		isHost := deviceHash == r.hostDeviceHash
+		status := r.playerStatuses[deviceHash]
+		if status == "" {
+			status = "joining"
+		}
 		players = append(players, protocol.LobbyPlayerPayload{
 			DisplayName:  conn.DisplayName(),
 			DeviceIDHash: deviceHash,
 			Slot:         slot,
 			IsHost:       isHost,
-			Status:       "joining",
+			Status:       status,
 		})
 	}
 
@@ -238,12 +262,17 @@ func (r *Room) broadcastPlayerJoinedToOthersLocked(deviceIDHash string, conn *Pl
 	slot := r.slotAssignments[deviceIDHash]
 	isHost := deviceIDHash == r.hostDeviceHash
 
+	status := r.playerStatuses[deviceIDHash]
+	if status == "" {
+		status = "joining"
+	}
+
 	payload, err := json.Marshal(protocol.LobbyPlayerPayload{
 		DisplayName:  conn.DisplayName(),
 		DeviceIDHash: conn.DeviceHash(),
 		Slot:         slot,
 		IsHost:       isHost,
-		Status:       "joining",
+		Status:       status,
 	})
 	if err != nil {
 		slog.Error("failed to marshal player_joined payload", "code", r.code, "error", err)
@@ -352,6 +381,117 @@ func (r *Room) broadcastLocked(msg protocol.Message) {
 			slog.Warn("failed to send message to player", "code", r.code, "device", deviceHash, "error", err)
 		}
 	}
+}
+
+// handleClientMessage routes incoming client messages by action.
+func (r *Room) handleClientMessage(deviceHash string, raw json.RawMessage) {
+	var msg protocol.Message
+	if err := json.Unmarshal(raw, &msg); err != nil {
+		slog.Warn("failed to parse client message", "code", r.code, "device", deviceHash, "error", err)
+		return
+	}
+
+	switch msg.Action {
+	case protocol.ActionLobbyPunishmentSubmitted:
+		var payload protocol.PunishmentSubmitPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			slog.Warn("failed to parse punishment payload", "code", r.code, "error", err)
+			return
+		}
+
+		// Validate text is non-empty after trimming.
+		trimmed := strings.TrimSpace(payload.Text)
+		if trimmed == "" {
+			r.sendErrorToPlayer(deviceHash, "PUNISHMENT_EMPTY", "Punishment text must not be empty")
+			return
+		}
+
+		// Validate text length.
+		if len([]rune(trimmed)) > 140 {
+			r.sendErrorToPlayer(deviceHash, "PUNISHMENT_TOO_LONG", "Punishment text must be 140 characters or fewer")
+			return
+		}
+
+		r.mu.Lock()
+		r.punishments[deviceHash] = trimmed
+		r.playerStatuses[deviceHash] = "ready"
+		r.mu.Unlock()
+
+		// Broadcast status change to all players.
+		r.broadcastPlayerStatus(deviceHash, "ready")
+
+	case protocol.ActionLobbyPlayerStatusChanged:
+		var payload protocol.PlayerStatusChangedPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			slog.Warn("failed to parse status change payload", "code", r.code, "error", err)
+			return
+		}
+
+		// Validate status against allowlist.
+		if !validPlayerStatuses[payload.Status] {
+			slog.Warn("rejected invalid player status", "code", r.code, "device", deviceHash, "status", payload.Status)
+			return
+		}
+
+		r.mu.Lock()
+		r.playerStatuses[deviceHash] = payload.Status
+		r.mu.Unlock()
+
+		r.broadcastPlayerStatus(deviceHash, payload.Status)
+
+	default:
+		slog.Debug("unhandled client action", "code", r.code, "action", msg.Action)
+	}
+}
+
+// sendErrorToPlayer sends an error message to a specific player.
+func (r *Room) sendErrorToPlayer(deviceHash, code, message string) {
+	payload, err := json.Marshal(protocol.ErrorPayload{
+		Code:    code,
+		Message: message,
+	})
+	if err != nil {
+		return
+	}
+	data, err := json.Marshal(protocol.Message{
+		Action:  protocol.ActionError,
+		Payload: payload,
+	})
+	if err != nil {
+		return
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if conn, ok := r.players[deviceHash]; ok {
+		if writeErr := conn.WriteMessage(data); writeErr != nil {
+			slog.Warn("failed to send error to player", "code", r.code, "device", deviceHash, "error", writeErr)
+		}
+	}
+}
+
+// broadcastPlayerStatus broadcasts a player status change to all connected players.
+func (r *Room) broadcastPlayerStatus(deviceHash, status string) {
+	payload, err := json.Marshal(protocol.PlayerStatusChangedPayload{
+		DeviceIDHash: deviceHash,
+		Status:       status,
+	})
+	if err != nil {
+		slog.Error("failed to marshal status change", "code", r.code, "error", err)
+		return
+	}
+
+	r.BroadcastMessage(protocol.Message{
+		Action:  protocol.ActionLobbyPlayerStatusChanged,
+		Payload: payload,
+	})
+}
+
+// AllPunishmentsSubmitted returns true if every connected player has submitted a punishment.
+func (r *Room) AllPunishmentsSubmitted() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.punishments) >= len(r.players) && len(r.players) > 0
 }
 
 // SendAction sends an action to the room's action channel for processing.

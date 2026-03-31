@@ -459,6 +459,399 @@ func TestSlotReuse_AfterExpiration(t *testing.T) {
 	}
 }
 
+func TestHandleClientMessage_PunishmentSubmission(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	// Add a player with write pump.
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "player1", "Alice")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Drain room_state.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel()
+	_, _, _ = serverConn1.Read(drainCtx)
+
+	// Send punishment submission via action channel.
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionLobbyPunishmentSubmitted,
+		Payload: json.RawMessage(`{"text":"Do a dance"}`),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  "player1",
+		Payload: innerMsg,
+	})
+
+	// Read the broadcast status change.
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
+	_, data, err := serverConn1.Read(readCtx)
+	if err != nil {
+		t.Fatalf("failed to read broadcast: %v", err)
+	}
+
+	var msg protocol.Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if msg.Action != protocol.ActionLobbyPlayerStatusChanged {
+		t.Errorf("expected action %q, got %q", protocol.ActionLobbyPlayerStatusChanged, msg.Action)
+	}
+
+	var payload protocol.PlayerStatusChangedPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("failed to unmarshal payload: %v", err)
+	}
+	if payload.DeviceIDHash != "player1" {
+		t.Errorf("expected deviceIdHash 'player1', got %q", payload.DeviceIDHash)
+	}
+	if payload.Status != "ready" {
+		t.Errorf("expected status 'ready', got %q", payload.Status)
+	}
+
+	// Verify punishment stored.
+	r.mu.RLock()
+	text := r.punishments["player1"]
+	r.mu.RUnlock()
+	if text != "Do a dance" {
+		t.Errorf("expected punishment 'Do a dance', got %q", text)
+	}
+}
+
+func TestHandleClientMessage_StatusChange(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "player1", "Alice")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Drain room_state.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel()
+	_, _, _ = serverConn1.Read(drainCtx)
+
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionLobbyPlayerStatusChanged,
+		Payload: json.RawMessage(`{"deviceIdHash":"player1","status":"writing"}`),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  "player1",
+		Payload: innerMsg,
+	})
+
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
+	_, data, err := serverConn1.Read(readCtx)
+	if err != nil {
+		t.Fatalf("failed to read broadcast: %v", err)
+	}
+
+	var msg protocol.Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	if msg.Action != protocol.ActionLobbyPlayerStatusChanged {
+		t.Errorf("expected action %q, got %q", protocol.ActionLobbyPlayerStatusChanged, msg.Action)
+	}
+
+	// Verify status stored.
+	r.mu.RLock()
+	status := r.playerStatuses["player1"]
+	r.mu.RUnlock()
+	if status != "writing" {
+		t.Errorf("expected status 'writing', got %q", status)
+	}
+}
+
+func TestAllPunishmentsSubmitted(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	r := NewRoom("TEST", "host", cancel, nil)
+	defer cancel()
+
+	conn1, _ := newWSPair(t)
+	pc1 := NewPlayerConn(conn1, "player1", "Alice")
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	conn2, _ := newWSPair(t)
+	pc2 := NewPlayerConn(conn2, "player2", "Bob")
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	if r.AllPunishmentsSubmitted() {
+		t.Error("expected false when no punishments submitted")
+	}
+
+	r.mu.Lock()
+	r.punishments["player1"] = "test"
+	r.mu.Unlock()
+
+	if r.AllPunishmentsSubmitted() {
+		t.Error("expected false when only one player submitted")
+	}
+
+	r.mu.Lock()
+	r.punishments["player2"] = "test2"
+	r.mu.Unlock()
+
+	if !r.AllPunishmentsSubmitted() {
+		t.Error("expected true when all players submitted")
+	}
+}
+
+func TestHandleClientMessage_PunishmentTooLong(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "player1", "Alice")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Drain room_state.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel()
+	_, _, _ = serverConn1.Read(drainCtx)
+
+	// Send punishment with text longer than 140 chars.
+	longText := ""
+	for i := 0; i < 150; i++ {
+		longText += "A"
+	}
+	payloadJSON := `{"text":"` + longText + `"}`
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionLobbyPunishmentSubmitted,
+		Payload: json.RawMessage(payloadJSON),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  "player1",
+		Payload: innerMsg,
+	})
+
+	// Should receive an error message.
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
+	_, data, err := serverConn1.Read(readCtx)
+	if err != nil {
+		t.Fatalf("failed to read error message: %v", err)
+	}
+
+	var msg protocol.Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	if msg.Action != protocol.ActionError {
+		t.Errorf("expected action %q, got %q", protocol.ActionError, msg.Action)
+	}
+
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("failed to unmarshal error payload: %v", err)
+	}
+	if errPayload.Code != "PUNISHMENT_TOO_LONG" {
+		t.Errorf("expected error code PUNISHMENT_TOO_LONG, got %q", errPayload.Code)
+	}
+
+	// Verify punishment NOT stored.
+	r.mu.RLock()
+	_, exists := r.punishments["player1"]
+	r.mu.RUnlock()
+	if exists {
+		t.Error("punishment should not be stored when text is too long")
+	}
+}
+
+func TestRoomState_IncludesPlayerStatuses(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	r := NewRoom("TEST", "host-hash", cancel, nil)
+	defer cancel()
+
+	conn1, _ := newWSPair(t)
+	pc1 := NewPlayerConn(conn1, "host-hash", "Host")
+	if err := r.AddPlayer("host-hash", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Set a custom status.
+	r.mu.Lock()
+	r.playerStatuses["host-hash"] = "writing"
+	r.mu.Unlock()
+
+	msg, err := r.GetRoomState()
+	if err != nil {
+		t.Fatalf("GetRoomState failed: %v", err)
+	}
+
+	var payload protocol.LobbyRoomStatePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if len(payload.Players) != 1 {
+		t.Fatalf("expected 1 player, got %d", len(payload.Players))
+	}
+	if payload.Players[0].Status != "writing" {
+		t.Errorf("expected status 'writing', got %q", payload.Players[0].Status)
+	}
+}
+
+func TestHandleClientMessage_PunishmentEmpty(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "player1", "Alice")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Drain room_state.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel()
+	_, _, _ = serverConn1.Read(drainCtx)
+
+	// Send whitespace-only punishment.
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionLobbyPunishmentSubmitted,
+		Payload: json.RawMessage(`{"text":"   "}`),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  "player1",
+		Payload: innerMsg,
+	})
+
+	// Should receive error.
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
+	_, data, err := serverConn1.Read(readCtx)
+	if err != nil {
+		t.Fatalf("failed to read error message: %v", err)
+	}
+
+	var msg protocol.Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	if msg.Action != protocol.ActionError {
+		t.Errorf("expected action %q, got %q", protocol.ActionError, msg.Action)
+	}
+
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("failed to unmarshal error payload: %v", err)
+	}
+	if errPayload.Code != "PUNISHMENT_EMPTY" {
+		t.Errorf("expected error code PUNISHMENT_EMPTY, got %q", errPayload.Code)
+	}
+
+	// Verify punishment NOT stored.
+	r.mu.RLock()
+	_, exists := r.punishments["player1"]
+	r.mu.RUnlock()
+	if exists {
+		t.Error("punishment should not be stored when text is whitespace-only")
+	}
+}
+
+func TestHandleClientMessage_InvalidStatusRejected(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	clientConn1, _ := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "player1", "Alice")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("player1", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+
+	// Send invalid status.
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionLobbyPlayerStatusChanged,
+		Payload: json.RawMessage(`{"deviceIdHash":"player1","status":"hacker"}`),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  "player1",
+		Payload: innerMsg,
+	})
+
+	// Wait for action to be processed.
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify status NOT stored.
+	r.mu.RLock()
+	status := r.playerStatuses["player1"]
+	r.mu.RUnlock()
+	if status == "hacker" {
+		t.Error("invalid status should not be stored")
+	}
+}
+
+func TestExpireDisconnectedPlayers_CleansPunishments(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	r := NewRoom("TEST", "host", cancel, nil)
+	defer cancel()
+
+	// Directly set up maps to simulate a player who disconnected with state.
+	r.mu.Lock()
+	r.punishments["player1"] = "test punishment"
+	r.playerStatuses["player1"] = "ready"
+	r.slotAssignments["player1"] = 1
+	r.disconnected["player1"] = time.Now().Add(-2 * ReconnectWindow)
+	r.mu.Unlock()
+
+	r.expireDisconnectedPlayers()
+
+	// Verify all state cleaned up.
+	r.mu.RLock()
+	_, hasPunishment := r.punishments["player1"]
+	_, hasStatus := r.playerStatuses["player1"]
+	_, hasSlot := r.slotAssignments["player1"]
+	r.mu.RUnlock()
+	if hasPunishment {
+		t.Error("punishment should be cleaned up after player expiration")
+	}
+	if hasStatus {
+		t.Error("player status should be cleaned up after player expiration")
+	}
+	if hasSlot {
+		t.Error("slot should be cleaned up after player expiration")
+	}
+}
+
 func TestRoomCode(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 	r := NewRoom("ABCD", "host", cancel, nil)

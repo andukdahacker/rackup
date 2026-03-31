@@ -16,6 +16,7 @@ import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/bloc/room_event.dart';
 import 'package:rackup/features/lobby/bloc/room_state.dart';
 import 'package:rackup/features/lobby/view/lobby_page.dart';
+import 'package:rackup/features/lobby/view/widgets/punishment_input.dart';
 import 'package:rackup/l10n/l10n.dart';
 
 class MockRoomBloc extends MockBloc<RoomEvent, RoomState>
@@ -152,6 +153,41 @@ void main() {
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
       expect(find.text('Jake'), findsOneWidget);
+    });
+
+    testWidgets('shows PunishmentInput widget in lobby', (tester) async {
+      when(() => roomBloc.state).thenReturn(
+        const RoomLobby(
+          players: [],
+          roomCode: 'ABCD',
+          jwt: 'jwt',
+        ),
+      );
+      await tester.pumpWidget(buildSubject());
+      expect(find.byType(PunishmentInput), findsOneWidget);
+    });
+
+    testWidgets('PunishmentInput is visible below player list',
+        (tester) async {
+      when(() => roomBloc.state).thenReturn(
+        const RoomLobby(
+          players: [
+            Player(
+              displayName: 'Jake',
+              deviceIdHash: 'hash1',
+              slot: 1,
+              isHost: true,
+              status: PlayerStatus.joining,
+            ),
+          ],
+          roomCode: 'ABCD',
+          jwt: 'jwt',
+        ),
+      );
+      await tester.pumpWidget(buildSubject());
+      await tester.pumpAndSettle();
+      expect(find.byType(PunishmentInput), findsOneWidget);
+      expect(find.text('Random'), findsOneWidget);
     });
 
     testWidgets('has dark canvas background', (tester) async {

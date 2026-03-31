@@ -1,12 +1,15 @@
 import 'package:equatable/equatable.dart';
 
 /// Player status in the lobby.
-///
-/// Extensible for Story 2.2 which will add `writing` and `ready` statuses
-/// when punishment submission is implemented.
 enum PlayerStatus {
   /// Player is joining the lobby.
   joining,
+
+  /// Player is typing a punishment.
+  writing,
+
+  /// Player has submitted a punishment and is ready.
+  ready,
 }
 
 /// A player in a game room.
@@ -37,6 +40,23 @@ class Player extends Equatable {
 
   /// The player's current lobby status.
   final PlayerStatus status;
+
+  /// Creates a copy with the given fields replaced.
+  Player copyWith({
+    String? displayName,
+    String? deviceIdHash,
+    int? slot,
+    bool? isHost,
+    PlayerStatus? status,
+  }) {
+    return Player(
+      displayName: displayName ?? this.displayName,
+      deviceIdHash: deviceIdHash ?? this.deviceIdHash,
+      slot: slot ?? this.slot,
+      isHost: isHost ?? this.isHost,
+      status: status ?? this.status,
+    );
+  }
 
   @override
   List<Object?> get props => [displayName, deviceIdHash, slot, isHost, status];

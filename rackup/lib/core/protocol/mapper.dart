@@ -17,8 +17,8 @@ Player mapToPlayer(LobbyPlayerPayload payload) {
 PlayerStatus _mapStatus(String status) {
   return switch (status) {
     'joining' => PlayerStatus.joining,
-    // Story 2.2 will add: 'writing' => PlayerStatus.writing,
-    // Story 2.2 will add: 'ready' => PlayerStatus.ready,
+    'writing' => PlayerStatus.writing,
+    'ready' => PlayerStatus.ready,
     _ => PlayerStatus.joining, // default to joining for unknown statuses
   };
 }

@@ -42,6 +42,22 @@ void main() {
     );
   }
 
+  const writingPlayer = Player(
+    displayName: 'Maya',
+    deviceIdHash: 'hash3',
+    slot: 3,
+    isHost: false,
+    status: PlayerStatus.writing,
+  );
+
+  const readyPlayer = Player(
+    displayName: 'Leo',
+    deviceIdHash: 'hash4',
+    slot: 4,
+    isHost: false,
+    status: PlayerStatus.ready,
+  );
+
   group('PlayerListTile', () {
     testWidgets('displays player name', (tester) async {
       await tester.pumpWidget(buildSubject(player));
@@ -96,6 +112,27 @@ void main() {
       await tester.pumpWidget(buildSubject(player, animationsEnabled: false));
       // No need to pump multiple frames — appears immediately.
       expect(find.text('Jake'), findsOneWidget);
+    });
+
+    testWidgets('shows Writing... status with amber color', (tester) async {
+      await tester.pumpWidget(buildSubject(writingPlayer));
+      await tester.pumpAndSettle();
+      expect(find.text('Writing...'), findsOneWidget);
+    });
+
+    testWidgets('shows Ready status with green color and checkmark',
+        (tester) async {
+      await tester.pumpWidget(buildSubject(readyPlayer));
+      await tester.pumpAndSettle();
+      expect(find.text('Ready'), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
+    });
+
+    testWidgets('does not show checkmark for non-ready status',
+        (tester) async {
+      await tester.pumpWidget(buildSubject(writingPlayer));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check), findsNothing);
     });
   });
 }

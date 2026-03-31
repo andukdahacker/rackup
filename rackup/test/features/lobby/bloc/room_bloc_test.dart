@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/config/app_config.dart';
 import 'package:rackup/core/models/player.dart';
-import 'package:rackup/core/protocol/messages.dart' show CreateRoomResponse, JoinRoomResponse;
+import 'package:rackup/core/protocol/messages.dart'
+    show CreateRoomResponse, JoinRoomResponse, Message;
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/services/room_api_service.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
@@ -20,11 +21,17 @@ class MockWebSocketCubit extends Mock implements WebSocketCubit {}
 
 class MockAppConfig extends Mock implements AppConfig {}
 
+class FakeMessage extends Fake implements Message {}
+
 void main() {
   late MockDeviceIdentityService deviceIdentityService;
   late MockRoomApiService roomApiService;
   late MockWebSocketCubit webSocketCubit;
   late MockAppConfig config;
+
+  setUpAll(() {
+    registerFallbackValue(FakeMessage());
+  });
 
   setUp(() {
     deviceIdentityService = MockDeviceIdentityService();
@@ -311,6 +318,89 @@ void main() {
       build: buildBloc,
       act: (bloc) => bloc.add(const PlayerJoined(player: player1)),
       expect: () => <RoomState>[],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerStatusChanged updates player status in lobby',
+      build: buildBloc,
+      seed: () => const RoomLobby(
+        players: [player1, player2],
+        roomCode: 'ABCD',
+        jwt: 'jwt-123',
+      ),
+      act: (bloc) => bloc.add(const PlayerStatusChanged(
+        deviceIdHash: 'hash2',
+        status: PlayerStatus.writing,
+      )),
+      expect: () => [
+        const RoomLobby(
+          players: [
+            player1,
+            Player(
+              displayName: 'Danny',
+              deviceIdHash: 'hash2',
+              slot: 2,
+              isHost: false,
+              status: PlayerStatus.writing,
+            ),
+          ],
+          roomCode: 'ABCD',
+          jwt: 'jwt-123',
+        ),
+      ],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerStatusChanged does nothing when not in RoomLobby state',
+      build: buildBloc,
+      act: (bloc) => bloc.add(const PlayerStatusChanged(
+        deviceIdHash: 'hash1',
+        status: PlayerStatus.ready,
+      )),
+      expect: () => <RoomState>[],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PunishmentSubmitted sends message via WebSocket',
+      build: () {
+        when(() => webSocketCubit.sendMessage(any())).thenReturn(null);
+        return buildBloc();
+      },
+      act: (bloc) =>
+          bloc.add(const PunishmentSubmitted(text: 'Do a dance')),
+      expect: () => <RoomState>[],
+      verify: (_) {
+        verify(() => webSocketCubit.sendMessage(any())).called(1);
+      },
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'PlayerStatusChanged updates to ready status',
+      build: buildBloc,
+      seed: () => const RoomLobby(
+        players: [player1],
+        roomCode: 'ABCD',
+        jwt: 'jwt-123',
+      ),
+      act: (bloc) => bloc.add(const PlayerStatusChanged(
+        deviceIdHash: 'hash1',
+        status: PlayerStatus.ready,
+      )),
+      expect: () => [
+        const RoomLobby(
+          players: [
+            Player(
+              displayName: 'Jake',
+              deviceIdHash: 'hash1',
+              slot: 1,
+              isHost: true,
+              status: PlayerStatus.ready,
+            ),
+          ],
+          roomCode: 'ABCD',
+          jwt: 'jwt-123',
+        ),
+      ],
     );
   });
 }

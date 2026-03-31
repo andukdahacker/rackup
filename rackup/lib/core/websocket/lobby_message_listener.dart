@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:rackup/core/models/player.dart';
 import 'package:rackup/core/protocol/actions.dart';
 import 'package:rackup/core/protocol/mapper.dart';
 import 'package:rackup/core/protocol/messages.dart';
@@ -42,7 +44,28 @@ class LobbyMessageListener {
           final deviceIdHash = message.payload['deviceIdHash'] as String;
           roomBloc.add(PlayerLeft(deviceIdHash: deviceIdHash));
 
-        // Story 2.2: lobby.punishment_submitted handling deferred.
+        case Actions.lobbyPlayerStatusChanged:
+          final payload =
+              PlayerStatusChangedPayload.fromJson(message.payload);
+          final status = switch (payload.status) {
+            'writing' => PlayerStatus.writing,
+            'ready' => PlayerStatus.ready,
+            _ => PlayerStatus.joining,
+          };
+          roomBloc.add(PlayerStatusChanged(
+            deviceIdHash: payload.deviceIdHash,
+            status: status,
+          ));
+
+        case Actions.error:
+          final code = message.payload['code'] as String? ?? 'UNKNOWN';
+          final errorMessage =
+              message.payload['message'] as String? ?? 'Unknown error';
+          developer.log(
+            'Server error: $code — $errorMessage',
+            name: 'LobbyMessageListener',
+          );
+
         default:
           break;
       }

@@ -23,6 +23,32 @@ void main() {
       expect(player.status, PlayerStatus.joining);
     });
 
+    test('maps writing status to PlayerStatus.writing', () {
+      const payload = LobbyPlayerPayload(
+        displayName: 'Player',
+        deviceIdHash: 'hash',
+        slot: 1,
+        isHost: false,
+        status: 'writing',
+      );
+
+      final player = mapToPlayer(payload);
+      expect(player.status, PlayerStatus.writing);
+    });
+
+    test('maps ready status to PlayerStatus.ready', () {
+      const payload = LobbyPlayerPayload(
+        displayName: 'Player',
+        deviceIdHash: 'hash',
+        slot: 1,
+        isHost: false,
+        status: 'ready',
+      );
+
+      final player = mapToPlayer(payload);
+      expect(player.status, PlayerStatus.ready);
+    });
+
     test('maps unknown status to joining', () {
       const payload = LobbyPlayerPayload(
         displayName: 'Danny',

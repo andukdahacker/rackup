@@ -12,6 +12,7 @@ import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/bloc/room_event.dart';
 import 'package:rackup/features/lobby/bloc/room_state.dart';
 import 'package:rackup/features/lobby/view/widgets/player_list_tile.dart';
+import 'package:rackup/features/lobby/view/widgets/punishment_input.dart';
 import 'package:rackup/features/lobby/view/widgets/room_code_display.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -112,7 +113,9 @@ class _LobbyPageState extends State<LobbyPage> {
                         ),
                       ),
                     ),
-                    // TODO: Story 2.2 — Punishment input
+                    const SizedBox(height: RackUpSpacing.spaceMd),
+                    // Punishment input.
+                    const PunishmentInput(),
                     // TODO: Story 2.3 — Slide-to-start
                     const SizedBox(height: RackUpSpacing.spaceMd),
                   ],

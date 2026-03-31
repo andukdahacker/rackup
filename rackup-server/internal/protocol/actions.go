@@ -5,6 +5,7 @@ const (
 	ActionLobbyPlayerLeft   = "lobby.player_left"
 	ActionLobbyRoomState    = "lobby.room_state"
 	ActionGameTurnComplete  = "game.turn_complete"
-	ActionError             = "error"
-	// Additional actions added in future stories.
+	ActionLobbyPunishmentSubmitted  = "lobby.punishment_submitted"
+	ActionLobbyPlayerStatusChanged = "lobby.player_status_changed"
+	ActionError                    = "error"
 )

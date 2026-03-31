@@ -124,6 +124,57 @@ void main() {
       listener.dispose();
     });
 
+    test('dispatches PlayerStatusChanged on lobby.player_status_changed',
+        () async {
+      final listener = LobbyMessageListener(
+        webSocketCubit: webSocketCubit,
+        roomBloc: roomBloc,
+      );
+
+      messageController.add(Message(
+        action: 'lobby.player_status_changed',
+        payload: <String, dynamic>{
+          'deviceIdHash': 'hash1',
+          'status': 'writing',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      final captured = verify(() => roomBloc.add(captureAny())).captured;
+      expect(captured.length, 1);
+      final event = captured.first as PlayerStatusChanged;
+      expect(event.deviceIdHash, 'hash1');
+      expect(event.status, PlayerStatus.writing);
+
+      listener.dispose();
+    });
+
+    test('dispatches PlayerStatusChanged with ready status', () async {
+      final listener = LobbyMessageListener(
+        webSocketCubit: webSocketCubit,
+        roomBloc: roomBloc,
+      );
+
+      messageController.add(Message(
+        action: 'lobby.player_status_changed',
+        payload: <String, dynamic>{
+          'deviceIdHash': 'hash2',
+          'status': 'ready',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      final captured = verify(() => roomBloc.add(captureAny())).captured;
+      expect(captured.length, 1);
+      final event = captured.first as PlayerStatusChanged;
+      expect(event.deviceIdHash, 'hash2');
+      expect(event.status, PlayerStatus.ready);
+
+      listener.dispose();
+    });
+
     test('ignores unknown message actions', () async {
       final listener = LobbyMessageListener(
         webSocketCubit: webSocketCubit,

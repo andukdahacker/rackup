@@ -8,8 +8,18 @@ void main() {
       expect(PlayerStatus.values, contains(PlayerStatus.joining));
     });
 
-    test('has exactly one value for Story 2.1', () {
-      expect(PlayerStatus.values.length, 1);
+    test('has writing value', () {
+      expect(PlayerStatus.writing, isNotNull);
+      expect(PlayerStatus.values, contains(PlayerStatus.writing));
+    });
+
+    test('has ready value', () {
+      expect(PlayerStatus.ready, isNotNull);
+      expect(PlayerStatus.values, contains(PlayerStatus.ready));
+    });
+
+    test('has exactly three values', () {
+      expect(PlayerStatus.values.length, 3);
     });
   });
 
@@ -68,6 +78,20 @@ void main() {
         status: PlayerStatus.joining,
       );
       expect(player, isNot(equals(differentHost)));
+    });
+
+    test('copyWith returns new player with changed status', () {
+      final updated = player.copyWith(status: PlayerStatus.writing);
+      expect(updated.status, PlayerStatus.writing);
+      expect(updated.displayName, 'Jake');
+      expect(updated.deviceIdHash, 'abc123');
+      expect(updated.slot, 1);
+      expect(updated.isHost, true);
+    });
+
+    test('copyWith with no arguments returns equal player', () {
+      final copy = player.copyWith();
+      expect(copy, equals(player));
     });
 
     test('is immutable', () {
