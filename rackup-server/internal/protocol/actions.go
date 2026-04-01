@@ -7,5 +7,7 @@ const (
 	ActionGameTurnComplete  = "game.turn_complete"
 	ActionLobbyPunishmentSubmitted  = "lobby.punishment_submitted"
 	ActionLobbyPlayerStatusChanged = "lobby.player_status_changed"
+	ActionLobbyStartGame           = "lobby.start_game"
+	ActionLobbyGameStarted         = "lobby.game_started"
 	ActionError                    = "error"
 )

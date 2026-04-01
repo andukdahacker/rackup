@@ -40,7 +40,7 @@ void main() {
     roomBloc = MockRoomBloc();
     webSocketCubit = MockWebSocketCubit();
     when(() => roomBloc.state).thenReturn(
-      const RoomLobby(players: [], roomCode: 'ABCD', jwt: 'jwt'),
+      const RoomLobby(players: [], roomCode: 'ABCD', jwt: 'jwt', hostDeviceIdHash: 'host'),
     );
     when(() => webSocketCubit.state)
         .thenReturn(const WebSocketDisconnected());

@@ -10,6 +10,7 @@ import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
+import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/core/websocket/web_socket_state.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
@@ -25,19 +26,26 @@ class MockRoomBloc extends MockBloc<RoomEvent, RoomState>
 class MockWebSocketCubit extends MockCubit<WebSocketState>
     implements WebSocketCubit {}
 
+class MockDeviceIdentityService extends Mock
+    implements DeviceIdentityService {}
+
 void main() {
   late MockRoomBloc roomBloc;
   late MockWebSocketCubit webSocketCubit;
+  late MockDeviceIdentityService deviceIdentityService;
   late StreamController<Message> messageController;
 
   setUp(() {
     roomBloc = MockRoomBloc();
     webSocketCubit = MockWebSocketCubit();
+    deviceIdentityService = MockDeviceIdentityService();
     messageController = StreamController<Message>.broadcast();
 
     when(() => webSocketCubit.messages).thenAnswer(
       (_) => messageController.stream,
     );
+    when(() => deviceIdentityService.getHashedDeviceId())
+        .thenReturn('hash1');
   });
 
   tearDown(() {
@@ -60,12 +68,15 @@ void main() {
           backgroundColor: RackUpColors.tierLobby,
           animationsEnabled: false,
         ),
-        child: MultiBlocProvider(
-          providers: [
-            BlocProvider<RoomBloc>.value(value: roomBloc),
-            BlocProvider<WebSocketCubit>.value(value: webSocketCubit),
-          ],
-          child: const LobbyPage(),
+        child: RepositoryProvider<DeviceIdentityService>.value(
+          value: deviceIdentityService,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<RoomBloc>.value(value: roomBloc),
+              BlocProvider<WebSocketCubit>.value(value: webSocketCubit),
+            ],
+            child: const LobbyPage(),
+          ),
         ),
       ),
     );
@@ -84,6 +95,7 @@ void main() {
           players: [],
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
         ),
       );
       await tester.pumpWidget(buildSubject());
@@ -96,6 +108,7 @@ void main() {
           players: [],
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
         ),
       );
       await tester.pumpWidget(buildSubject());
@@ -125,6 +138,7 @@ void main() {
           players: players,
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
         ),
       );
       await tester.pumpWidget(buildSubject());
@@ -148,6 +162,7 @@ void main() {
           players: players,
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
         ),
       );
       await tester.pumpWidget(buildSubject());
@@ -161,6 +176,7 @@ void main() {
           players: [],
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
         ),
       );
       await tester.pumpWidget(buildSubject());
@@ -182,6 +198,7 @@ void main() {
           ],
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
         ),
       );
       await tester.pumpWidget(buildSubject());
@@ -196,11 +213,47 @@ void main() {
           players: [],
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
         ),
       );
       await tester.pumpWidget(buildSubject());
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
       expect(scaffold.backgroundColor, RackUpColors.canvas);
+    });
+
+    testWidgets('non-host sees waiting indicator instead of slide-to-start',
+        (tester) async {
+      // Make device identity different from host hash.
+      when(() => deviceIdentityService.getHashedDeviceId())
+          .thenReturn('non-host-hash');
+      when(() => roomBloc.state).thenReturn(
+        const RoomLobby(
+          players: [
+            Player(
+              displayName: 'Host',
+              deviceIdHash: 'hash1',
+              slot: 1,
+              isHost: true,
+              status: PlayerStatus.joining,
+            ),
+            Player(
+              displayName: 'Guest',
+              deviceIdHash: 'non-host-hash',
+              slot: 2,
+              isHost: false,
+              status: PlayerStatus.joining,
+            ),
+          ],
+          roomCode: 'ABCD',
+          jwt: 'jwt',
+          hostDeviceIdHash: 'hash1',
+        ),
+      );
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      expect(find.text('Waiting for host to start...'), findsOneWidget);
+      expect(find.text('SLIDE TO START GAME'), findsNothing);
     });
   });
 }

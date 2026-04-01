@@ -1,6 +1,5 @@
 import 'package:bloc/bloc.dart';
 import 'package:rackup/core/config/app_config.dart';
-import 'package:rackup/core/models/player.dart';
 import 'package:rackup/core/protocol/actions.dart';
 import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
@@ -29,6 +28,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
     on<PlayerLeft>(_onPlayerLeft);
     on<PlayerStatusChanged>(_onPlayerStatusChanged);
     on<PunishmentSubmitted>(_onPunishmentSubmitted);
+    on<StartGameRequested>(_onStartGameRequested);
+    on<GameStarted>(_onGameStarted);
     on<ResetRoom>(_onResetRoom);
   }
 
@@ -121,6 +122,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
       players: event.players,
       roomCode: event.roomCode,
       jwt: jwt,
+      hostDeviceIdHash: event.hostDeviceIdHash,
+      allReadyOrTimedOut: event.allReadyOrTimedOut,
     ));
   }
 
@@ -136,6 +139,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         players: updatedPlayers,
         roomCode: currentState.roomCode,
         jwt: currentState.jwt,
+        hostDeviceIdHash: currentState.hostDeviceIdHash,
+        allReadyOrTimedOut: currentState.allReadyOrTimedOut,
       ));
     }
   }
@@ -150,6 +155,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         players: updatedPlayers,
         roomCode: currentState.roomCode,
         jwt: currentState.jwt,
+        hostDeviceIdHash: currentState.hostDeviceIdHash,
+        allReadyOrTimedOut: currentState.allReadyOrTimedOut,
       ));
     }
   }
@@ -170,6 +177,8 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
         players: updatedPlayers,
         roomCode: currentState.roomCode,
         jwt: currentState.jwt,
+        hostDeviceIdHash: currentState.hostDeviceIdHash,
+        allReadyOrTimedOut: currentState.allReadyOrTimedOut,
       ));
     }
   }
@@ -182,6 +191,20 @@ class RoomBloc extends Bloc<RoomEvent, RoomState> {
       action: Actions.lobbyPunishmentSubmitted,
       payload: PunishmentSubmitPayload(text: event.text).toJson(),
     ));
+  }
+
+  void _onStartGameRequested(
+    StartGameRequested event,
+    Emitter<RoomState> emit,
+  ) {
+    _webSocketCubit.sendMessage(Message(
+      action: Actions.lobbyStartGame,
+      payload: StartGamePayload(roundCount: event.roundCount).toJson(),
+    ));
+  }
+
+  void _onGameStarted(GameStarted event, Emitter<RoomState> emit) {
+    emit(RoomStarting(roundCount: event.roundCount));
   }
 
   void _onResetRoom(ResetRoom event, Emitter<RoomState> emit) {

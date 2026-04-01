@@ -11,9 +11,12 @@ import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/bloc/room_event.dart';
 import 'package:rackup/features/lobby/bloc/room_state.dart';
+import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/features/lobby/view/widgets/player_list_tile.dart';
 import 'package:rackup/features/lobby/view/widgets/punishment_input.dart';
 import 'package:rackup/features/lobby/view/widgets/room_code_display.dart';
+import 'package:rackup/features/lobby/view/widgets/round_count_selector.dart';
+import 'package:rackup/features/lobby/view/widgets/slide_to_start.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// The pre-game lobby screen.
@@ -30,6 +33,7 @@ class LobbyPage extends StatefulWidget {
 
 class _LobbyPageState extends State<LobbyPage> {
   LobbyMessageListener? _messageListener;
+  int _selectedRoundCount = 10;
 
   @override
   void initState() {
@@ -37,6 +41,13 @@ class _LobbyPageState extends State<LobbyPage> {
     _messageListener = LobbyMessageListener(
       webSocketCubit: context.read<WebSocketCubit>(),
       roomBloc: context.read<RoomBloc>(),
+      onError: (code, message) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+      },
     );
   }
 
@@ -59,7 +70,13 @@ class _LobbyPageState extends State<LobbyPage> {
       },
       child: Scaffold(
         backgroundColor: RackUpColors.canvas,
-        body: BlocBuilder<RoomBloc, RoomState>(
+        body: BlocListener<RoomBloc, RoomState>(
+          listener: (context, state) {
+            if (state is RoomStarting) {
+              context.go('/game');
+            }
+          },
+          child: BlocBuilder<RoomBloc, RoomState>(
           builder: (context, state) {
             if (state is! RoomLobby) {
               return const Center(
@@ -116,13 +133,23 @@ class _LobbyPageState extends State<LobbyPage> {
                     const SizedBox(height: RackUpSpacing.spaceMd),
                     // Punishment input.
                     const PunishmentInput(),
-                    // TODO: Story 2.3 — Slide-to-start
+                    const SizedBox(height: RackUpSpacing.spaceMd),
+                    // Game config: host sees round selector + slide-to-start;
+                    // non-host sees waiting indicator.
+                    _GameConfigSection(
+                      state: state,
+                      selectedRoundCount: _selectedRoundCount,
+                      onRoundCountChanged: (count) {
+                        setState(() => _selectedRoundCount = count);
+                      },
+                    ),
                     const SizedBox(height: RackUpSpacing.spaceMd),
                   ],
                 ),
               ),
             );
           },
+        ),
         ),
       ),
     );
@@ -166,6 +193,119 @@ class _ShareInviteButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _GameConfigSection extends StatelessWidget {
+  const _GameConfigSection({
+    required this.state,
+    required this.selectedRoundCount,
+    required this.onRoundCountChanged,
+  });
+
+  final RoomLobby state;
+  final int selectedRoundCount;
+  final ValueChanged<int> onRoundCountChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final deviceIdService =
+        context.read<DeviceIdentityService>();
+    final isHost =
+        deviceIdService.getHashedDeviceId() ==
+        state.hostDeviceIdHash;
+
+    if (!isHost) {
+      final disableAnimations =
+          MediaQuery.disableAnimationsOf(context);
+      return _WaitingIndicator(
+        disableAnimations: disableAnimations,
+      );
+    }
+
+    final enabled =
+        state.allReadyOrTimedOut || state.allPunishmentsReady;
+
+    return Column(
+      children: [
+        RoundCountSelector(
+          selectedRoundCount: selectedRoundCount,
+          onChanged: onRoundCountChanged,
+        ),
+        const SizedBox(height: RackUpSpacing.spaceMd),
+        SlideToStart(
+          enabled: enabled,
+          onStart: () {
+            context.read<RoomBloc>().add(
+              StartGameRequested(
+                roundCount: selectedRoundCount,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WaitingIndicator extends StatefulWidget {
+  const _WaitingIndicator({required this.disableAnimations});
+
+  final bool disableAnimations;
+
+  @override
+  State<_WaitingIndicator> createState() =>
+      _WaitingIndicatorState();
+}
+
+class _WaitingIndicatorState extends State<_WaitingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _opacity = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    if (!widget.disableAnimations) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.disableAnimations) {
+      return Text(
+        'Waiting for host to start...',
+        style: RackUpTypography.caption.copyWith(
+          color: RackUpColors.textSecondary,
+        ),
+        textScaler: ClampedTextScaler.of(context, TextRole.body),
+      );
+    }
+
+    return FadeTransition(
+      opacity: _opacity,
+      child: Text(
+        'Waiting for host to start...',
+        style: RackUpTypography.caption.copyWith(
+          color: RackUpColors.textSecondary,
+        ),
+        textScaler: ClampedTextScaler.of(context, TextRole.body),
       ),
     );
   }

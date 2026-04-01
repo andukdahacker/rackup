@@ -20,9 +20,10 @@ type LobbyPlayerPayload struct {
 
 // LobbyRoomStatePayload is the payload for lobby.room_state.
 type LobbyRoomStatePayload struct {
-	RoomCode         string               `json:"roomCode"`
-	HostDeviceIDHash string               `json:"hostDeviceIdHash"`
-	Players          []LobbyPlayerPayload `json:"players"`
+	RoomCode           string               `json:"roomCode"`
+	HostDeviceIDHash   string               `json:"hostDeviceIdHash"`
+	Players            []LobbyPlayerPayload `json:"players"`
+	AllReadyOrTimedOut bool                 `json:"allReadyOrTimedOut"`
 }
 
 // PunishmentSubmitPayload is the client→server payload for punishment submission.
@@ -34,6 +35,16 @@ type PunishmentSubmitPayload struct {
 type PlayerStatusChangedPayload struct {
 	DeviceIDHash string `json:"deviceIdHash"`
 	Status       string `json:"status"`
+}
+
+// StartGamePayload is the client→server payload for starting the game.
+type StartGamePayload struct {
+	RoundCount int `json:"roundCount"`
+}
+
+// GameStartedPayload is the server→client payload for game started broadcast.
+type GameStartedPayload struct {
+	RoundCount int `json:"roundCount"`
 }
 
 // ErrorPayload is the payload for action "error".

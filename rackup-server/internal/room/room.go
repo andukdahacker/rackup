@@ -26,6 +26,9 @@ const (
 	ReconnectWindow = 60 * time.Second
 	// RoomTimeout is the room-level timeout when all players disconnect.
 	RoomTimeout = 5 * time.Minute
+	// PunishmentTimeout is the duration after which the game can start even if
+	// not all players have submitted punishments.
+	PunishmentTimeout = 120 * time.Second
 	// actionChannelSize is the buffer size for the room action channel.
 	actionChannelSize = 64
 )
@@ -48,6 +51,9 @@ type Room struct {
 	punishments              map[string]string     // deviceIdHash → punishment text
 	playerStatuses           map[string]string     // deviceIdHash → status string (default "joining")
 	punishmentPhaseStartedAt time.Time             // set when first player joins; used by Story 2.3
+	roundCount               int                   // configured round count (5, 10, or 15)
+	gameStarted              bool                  // prevents double-start
+	timeoutBroadcast         bool                  // ensures timeout room_state broadcast fires once
 	createdAt                time.Time
 	actions                  chan Action
 	cancel                   context.CancelFunc
@@ -64,8 +70,7 @@ func NewRoom(code, hostDeviceHash string, cancel context.CancelFunc, manager *Ro
 		slotAssignments:          make(map[string]int),
 		punishments:              make(map[string]string),
 		playerStatuses:           make(map[string]string),
-		punishmentPhaseStartedAt: time.Now(),
-		createdAt:                time.Now(),
+		createdAt: time.Now(),
 		actions:                  make(chan Action, actionChannelSize),
 		cancel:                   cancel,
 		manager:                  manager,
@@ -113,6 +118,7 @@ func (r *Room) Run(ctx context.Context) {
 			return
 		case <-reconnectTicker.C:
 			r.expireDisconnectedPlayers()
+			r.checkPunishmentTimeout()
 		}
 	}
 }
@@ -177,6 +183,12 @@ func (r *Room) AddPlayer(deviceIDHash string, conn *PlayerConn) error {
 	}
 
 	r.players[deviceIDHash] = conn
+
+	// Start punishment phase timer when the second player joins.
+	if len(r.players) == 2 && r.punishmentPhaseStartedAt.IsZero() {
+		r.punishmentPhaseStartedAt = time.Now()
+	}
+
 	slog.Info("player joined", "code", r.code, "device", deviceIDHash, "count", len(r.players))
 
 	// Send room state to the new player first (within lock, guarantees ordering).
@@ -222,10 +234,14 @@ func (r *Room) buildRoomStateLocked() (protocol.Message, error) {
 		})
 	}
 
+	allSubmitted := len(r.punishments) >= len(r.players) && len(r.players) > 0
+	timedOut := !r.punishmentPhaseStartedAt.IsZero() && time.Since(r.punishmentPhaseStartedAt) >= PunishmentTimeout
+
 	payload, err := json.Marshal(protocol.LobbyRoomStatePayload{
-		RoomCode:         r.code,
-		HostDeviceIDHash: r.hostDeviceHash,
-		Players:          players,
+		RoomCode:           r.code,
+		HostDeviceIDHash:   r.hostDeviceHash,
+		Players:            players,
+		AllReadyOrTimedOut: allSubmitted || timedOut,
 	})
 	if err != nil {
 		return protocol.Message{}, err
@@ -439,9 +455,99 @@ func (r *Room) handleClientMessage(deviceHash string, raw json.RawMessage) {
 
 		r.broadcastPlayerStatus(deviceHash, payload.Status)
 
+	case protocol.ActionLobbyStartGame:
+		r.handleStartGame(deviceHash, msg.Payload)
+
 	default:
 		slog.Debug("unhandled client action", "code", r.code, "action", msg.Action)
 	}
+}
+
+// checkPunishmentTimeout broadcasts a fresh room state when the punishment
+// timeout elapses, so clients receive the updated allReadyOrTimedOut flag.
+func (r *Room) checkPunishmentTimeout() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.gameStarted || r.timeoutBroadcast || r.punishmentPhaseStartedAt.IsZero() {
+		return
+	}
+	if time.Since(r.punishmentPhaseStartedAt) >= PunishmentTimeout {
+		r.timeoutBroadcast = true
+		msg, err := r.buildRoomStateLocked()
+		if err != nil {
+			slog.Error("failed to build room state for timeout broadcast", "code", r.code, "error", err)
+			return
+		}
+		r.broadcastLocked(msg)
+		slog.Info("punishment timeout elapsed, broadcast room state", "code", r.code)
+	}
+}
+
+// handleStartGame processes the lobby.start_game action.
+func (r *Room) handleStartGame(deviceHash string, raw json.RawMessage) {
+	var payload protocol.StartGamePayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		slog.Warn("failed to parse start game payload", "code", r.code, "error", err)
+		return
+	}
+
+	r.mu.Lock()
+
+	// Only host can start.
+	if deviceHash != r.hostDeviceHash {
+		r.mu.Unlock()
+		r.sendErrorToPlayer(deviceHash, "NOT_HOST", "Only the host can start the game")
+		return
+	}
+
+	// Minimum 2 players.
+	if len(r.players) < 2 {
+		r.mu.Unlock()
+		r.sendErrorToPlayer(deviceHash, "NOT_ENOUGH_PLAYERS", "At least 2 players are required to start")
+		return
+	}
+
+	// Valid round count.
+	if payload.RoundCount != 5 && payload.RoundCount != 10 && payload.RoundCount != 15 {
+		r.mu.Unlock()
+		r.sendErrorToPlayer(deviceHash, "INVALID_ROUND_COUNT", "Round count must be 5, 10, or 15")
+		return
+	}
+
+	// Punishments ready or timeout elapsed.
+	allSubmitted := len(r.punishments) >= len(r.players) && len(r.players) > 0
+	timedOut := !r.punishmentPhaseStartedAt.IsZero() && time.Since(r.punishmentPhaseStartedAt) >= PunishmentTimeout
+	if !allSubmitted && !timedOut {
+		r.mu.Unlock()
+		r.sendErrorToPlayer(deviceHash, "PUNISHMENTS_PENDING", "Not all players have submitted punishments")
+		return
+	}
+
+	// Prevent double-start.
+	if r.gameStarted {
+		r.mu.Unlock()
+		r.sendErrorToPlayer(deviceHash, "GAME_ALREADY_STARTED", "Game has already started")
+		return
+	}
+
+	// Broadcast game started to all players.
+	startedPayload, err := json.Marshal(protocol.GameStartedPayload{
+		RoundCount: payload.RoundCount,
+	})
+	if err != nil {
+		r.mu.Unlock()
+		slog.Error("failed to marshal game started payload", "code", r.code, "error", err)
+		return
+	}
+
+	r.roundCount = payload.RoundCount
+	r.gameStarted = true
+	r.broadcastLocked(protocol.Message{
+		Action:  protocol.ActionLobbyGameStarted,
+		Payload: startedPayload,
+	})
+	r.mu.Unlock()
 }
 
 // sendErrorToPlayer sends an error message to a specific player.

@@ -18,13 +18,18 @@ class LobbyMessageListener {
   LobbyMessageListener({
     required WebSocketCubit webSocketCubit,
     required RoomBloc roomBloc,
+    void Function(String code, String message)? onError,
   })  : _subscription = webSocketCubit.messages.listen((message) {
-          _handleMessage(message, roomBloc);
+          _handleMessage(message, roomBloc, onError);
         });
 
   final StreamSubscription<Message> _subscription;
 
-  static void _handleMessage(Message message, RoomBloc roomBloc) {
+  static void _handleMessage(
+    Message message,
+    RoomBloc roomBloc,
+    void Function(String code, String message)? onError,
+  ) {
     try {
       switch (message.action) {
         case Actions.lobbyRoomState:
@@ -33,6 +38,8 @@ class LobbyMessageListener {
           roomBloc.add(RoomStateReceived(
             players: players,
             roomCode: payload.roomCode,
+            hostDeviceIdHash: payload.hostDeviceIdHash,
+            allReadyOrTimedOut: payload.allReadyOrTimedOut,
           ));
 
         case Actions.lobbyPlayerJoined:
@@ -57,6 +64,10 @@ class LobbyMessageListener {
             status: status,
           ));
 
+        case Actions.lobbyGameStarted:
+          final payload = GameStartedPayload.fromJson(message.payload);
+          roomBloc.add(GameStarted(roundCount: payload.roundCount));
+
         case Actions.error:
           final code = message.payload['code'] as String? ?? 'UNKNOWN';
           final errorMessage =
@@ -65,13 +76,15 @@ class LobbyMessageListener {
             'Server error: $code — $errorMessage',
             name: 'LobbyMessageListener',
           );
+          onError?.call(code, errorMessage);
 
         default:
           break;
       }
-    } on Exception {
+    } on Object {
       // Malformed lobby payloads are silently dropped to avoid killing
-      // the stream subscription.
+      // the stream subscription. Catches both Exception and Error (e.g.,
+      // TypeError from null casts).
     }
   }
 

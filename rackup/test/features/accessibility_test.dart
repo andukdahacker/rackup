@@ -13,6 +13,7 @@ import 'package:rackup/features/home/view/home_page.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/bloc/room_event.dart';
 import 'package:rackup/features/lobby/bloc/room_state.dart';
+import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/core/websocket/web_socket_state.dart';
 import 'package:rackup/features/lobby/view/create_room_page.dart';
@@ -27,6 +28,9 @@ class _MockRoomBloc extends MockBloc<RoomEvent, RoomState>
 
 class _MockWebSocketCubit extends MockCubit<WebSocketState>
     implements WebSocketCubit {}
+
+class _MockDeviceIdentityService extends Mock
+    implements DeviceIdentityService {}
 
 /// Helper to pump a widget with full theme and game theme.
 Future<void> _pumpWithTheme(
@@ -240,6 +244,7 @@ void main() {
           players: [],
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'host',
         ),
       );
 
@@ -248,14 +253,21 @@ void main() {
         (_) => const Stream.empty(),
       );
 
+      final mockDeviceIdentityService = _MockDeviceIdentityService();
+      when(() => mockDeviceIdentityService.getHashedDeviceId())
+          .thenReturn('host');
+
       await _pumpWithTheme(
         tester,
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<RoomBloc>.value(value: roomBloc),
-            BlocProvider<WebSocketCubit>.value(value: mockWsCubit),
-          ],
-          child: const LobbyPage(),
+        RepositoryProvider<DeviceIdentityService>.value(
+          value: mockDeviceIdentityService,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<RoomBloc>.value(value: roomBloc),
+              BlocProvider<WebSocketCubit>.value(value: mockWsCubit),
+            ],
+            child: const LobbyPage(),
+          ),
         ),
       );
 
@@ -522,6 +534,7 @@ void main() {
           players: [],
           roomCode: 'ABCD',
           jwt: 'jwt',
+          hostDeviceIdHash: 'host',
         ),
       );
       final mockWsCubit = _MockWebSocketCubit();
@@ -529,14 +542,21 @@ void main() {
         (_) => const Stream.empty(),
       );
 
+      final mockDeviceIdentityService = _MockDeviceIdentityService();
+      when(() => mockDeviceIdentityService.getHashedDeviceId())
+          .thenReturn('host');
+
       await _pumpWithTheme(
         tester,
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<RoomBloc>.value(value: bloc),
-            BlocProvider<WebSocketCubit>.value(value: mockWsCubit),
-          ],
-          child: const LobbyPage(),
+        RepositoryProvider<DeviceIdentityService>.value(
+          value: mockDeviceIdentityService,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<RoomBloc>.value(value: bloc),
+              BlocProvider<WebSocketCubit>.value(value: mockWsCubit),
+            ],
+            child: const LobbyPage(),
+          ),
         ),
         textScaleFactor: 2,
       );

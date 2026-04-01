@@ -3,6 +3,7 @@ package room
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -878,5 +879,315 @@ func TestRoomGoroutineStopsOnCancel(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("room goroutine did not stop after context cancel")
+	}
+}
+
+// --- Story 2.3: Game Start Tests ---
+
+// setupTwoPlayerRoom creates a room with two players (host + one other),
+// both with write pumps running, and returns the room, server connections,
+// and a cleanup function.
+func setupTwoPlayerRoom(t *testing.T) (*Room, context.CancelFunc, *websocket.Conn, *websocket.Conn) {
+	t.Helper()
+	r, cancel := newTestRoom(t)
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	t.Cleanup(pumpCancel)
+
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "host-hash", "Host")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("host-hash", pc1); err != nil {
+		t.Fatalf("AddPlayer host failed: %v", err)
+	}
+	// Drain room_state for host.
+	drainCtx1, drainCancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel1()
+	_, _, _ = serverConn1.Read(drainCtx1)
+
+	clientConn2, serverConn2 := newWSPair(t)
+	pc2 := NewPlayerConn(clientConn2, "player2", "Bob")
+	go pc2.WritePump(pumpCtx)
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer player2 failed: %v", err)
+	}
+	// Drain room_state for player2 and player_joined for host.
+	drainCtx2, drainCancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel2()
+	_, _, _ = serverConn2.Read(drainCtx2)
+	drainCtx3, drainCancel3 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel3()
+	_, _, _ = serverConn1.Read(drainCtx3)
+
+	// Submit punishments for both players so start is allowed.
+	r.mu.Lock()
+	r.punishments["host-hash"] = "test"
+	r.punishments["player2"] = "test2"
+	r.playerStatuses["host-hash"] = "ready"
+	r.playerStatuses["player2"] = "ready"
+	r.mu.Unlock()
+
+	return r, cancel, serverConn1, serverConn2
+}
+
+func sendStartGame(t *testing.T, r *Room, deviceHash string, roundCount int) {
+	t.Helper()
+	payload := fmt.Sprintf(`{"roundCount":%d}`, roundCount)
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionLobbyStartGame,
+		Payload: json.RawMessage(payload),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  deviceHash,
+		Payload: innerMsg,
+	})
+}
+
+func readMessage(t *testing.T, conn *websocket.Conn) protocol.Message {
+	t.Helper()
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
+	_, data, err := conn.Read(readCtx)
+	if err != nil {
+		t.Fatalf("failed to read message: %v", err)
+	}
+	var msg protocol.Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	return msg
+}
+
+func TestStartGame_NotHost(t *testing.T) {
+	r, cancel, _, serverConn2 := setupTwoPlayerRoom(t)
+	defer cancel()
+
+	sendStartGame(t, r, "player2", 10)
+
+	msg := readMessage(t, serverConn2)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error action, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "NOT_HOST" {
+		t.Errorf("expected NOT_HOST, got %q", errPayload.Code)
+	}
+}
+
+func TestStartGame_NotEnoughPlayers(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "host-hash", "Host")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("host-hash", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+	// Drain room_state.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel()
+	_, _, _ = serverConn1.Read(drainCtx)
+
+	// Submit punishment.
+	r.mu.Lock()
+	r.punishments["host-hash"] = "test"
+	r.playerStatuses["host-hash"] = "ready"
+	r.mu.Unlock()
+
+	sendStartGame(t, r, "host-hash", 10)
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error action, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "NOT_ENOUGH_PLAYERS" {
+		t.Errorf("expected NOT_ENOUGH_PLAYERS, got %q", errPayload.Code)
+	}
+}
+
+func TestStartGame_PunishmentsPending(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "host-hash", "Host")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("host-hash", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+	drainCtx1, drainCancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel1()
+	_, _, _ = serverConn1.Read(drainCtx1)
+
+	clientConn2, _ := newWSPair(t)
+	pc2 := NewPlayerConn(clientConn2, "player2", "Bob")
+	go pc2.WritePump(pumpCtx)
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+	// Drain player_joined for host.
+	drainCtx2, drainCancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel2()
+	_, _, _ = serverConn1.Read(drainCtx2)
+
+	// Only host submitted — not all.
+	r.mu.Lock()
+	r.punishments["host-hash"] = "test"
+	r.mu.Unlock()
+
+	sendStartGame(t, r, "host-hash", 10)
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error action, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "PUNISHMENTS_PENDING" {
+		t.Errorf("expected PUNISHMENTS_PENDING, got %q", errPayload.Code)
+	}
+}
+
+func TestStartGame_AllPunishmentsSubmitted(t *testing.T) {
+	r, cancel, serverConn1, serverConn2 := setupTwoPlayerRoom(t)
+	defer cancel()
+
+	sendStartGame(t, r, "host-hash", 10)
+
+	// Both players should receive game_started broadcast.
+	msg1 := readMessage(t, serverConn1)
+	if msg1.Action != protocol.ActionLobbyGameStarted {
+		t.Errorf("host expected game_started, got %q", msg1.Action)
+	}
+	var payload1 protocol.GameStartedPayload
+	if err := json.Unmarshal(msg1.Payload, &payload1); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload1.RoundCount != 10 {
+		t.Errorf("expected roundCount 10, got %d", payload1.RoundCount)
+	}
+
+	msg2 := readMessage(t, serverConn2)
+	if msg2.Action != protocol.ActionLobbyGameStarted {
+		t.Errorf("player2 expected game_started, got %q", msg2.Action)
+	}
+}
+
+func TestStartGame_TimeoutElapsed(t *testing.T) {
+	r, cancel := newTestRoom(t)
+	defer cancel()
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	defer pumpCancel()
+
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "host-hash", "Host")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("host-hash", pc1); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+	drainCtx1, drainCancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel1()
+	_, _, _ = serverConn1.Read(drainCtx1)
+
+	clientConn2, _ := newWSPair(t)
+	pc2 := NewPlayerConn(clientConn2, "player2", "Bob")
+	go pc2.WritePump(pumpCtx)
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer failed: %v", err)
+	}
+	drainCtx2, drainCancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel2()
+	_, _, _ = serverConn1.Read(drainCtx2)
+
+	// Force timeout elapsed — no punishments, but timeout passed.
+	r.mu.Lock()
+	r.punishmentPhaseStartedAt = time.Now().Add(-3 * time.Minute)
+	r.mu.Unlock()
+
+	sendStartGame(t, r, "host-hash", 10)
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionLobbyGameStarted {
+		t.Errorf("expected game_started, got %q", msg.Action)
+	}
+}
+
+func TestStartGame_InvalidRoundCount(t *testing.T) {
+	r, cancel, serverConn1, _ := setupTwoPlayerRoom(t)
+	defer cancel()
+
+	sendStartGame(t, r, "host-hash", 7)
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error action, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "INVALID_ROUND_COUNT" {
+		t.Errorf("expected INVALID_ROUND_COUNT, got %q", errPayload.Code)
+	}
+}
+
+func TestStartGame_BroadcastsToAll(t *testing.T) {
+	r, cancel, serverConn1, serverConn2 := setupTwoPlayerRoom(t)
+	defer cancel()
+
+	sendStartGame(t, r, "host-hash", 15)
+
+	msg1 := readMessage(t, serverConn1)
+	msg2 := readMessage(t, serverConn2)
+
+	if msg1.Action != protocol.ActionLobbyGameStarted {
+		t.Errorf("host: expected game_started, got %q", msg1.Action)
+	}
+	if msg2.Action != protocol.ActionLobbyGameStarted {
+		t.Errorf("player2: expected game_started, got %q", msg2.Action)
+	}
+}
+
+func TestStartGame_DoubleStart(t *testing.T) {
+	r, cancel, serverConn1, _ := setupTwoPlayerRoom(t)
+	defer cancel()
+
+	// First start — succeeds.
+	sendStartGame(t, r, "host-hash", 10)
+	msg1 := readMessage(t, serverConn1)
+	if msg1.Action != protocol.ActionLobbyGameStarted {
+		t.Fatalf("first start: expected game_started, got %q", msg1.Action)
+	}
+
+	// Second start — should fail.
+	sendStartGame(t, r, "host-hash", 10)
+	msg2 := readMessage(t, serverConn1)
+	if msg2.Action != protocol.ActionError {
+		t.Fatalf("double start: expected error, got %q", msg2.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg2.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "GAME_ALREADY_STARTED" {
+		t.Errorf("expected GAME_ALREADY_STARTED, got %q", errPayload.Code)
 	}
 }

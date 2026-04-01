@@ -122,6 +122,7 @@ class LobbyRoomStatePayload {
     required this.roomCode,
     required this.hostDeviceIdHash,
     required this.players,
+    this.allReadyOrTimedOut = false,
   });
 
   /// Creates from JSON map.
@@ -135,6 +136,7 @@ class LobbyRoomStatePayload {
       roomCode: json['roomCode'] as String,
       hostDeviceIdHash: json['hostDeviceIdHash'] as String,
       players: playersList,
+      allReadyOrTimedOut: json['allReadyOrTimedOut'] as bool? ?? false,
     );
   }
 
@@ -146,6 +148,9 @@ class LobbyRoomStatePayload {
 
   /// All players currently in the room.
   final List<LobbyPlayerPayload> players;
+
+  /// Whether all punishments are submitted or the timeout has elapsed.
+  final bool allReadyOrTimedOut;
 }
 
 /// Wire payload for client→server punishment submission.
@@ -192,6 +197,34 @@ class PlayerStatusChangedPayload {
         'deviceIdHash': deviceIdHash,
         'status': status,
       };
+}
+
+/// Wire payload for client→server game start request.
+class StartGamePayload {
+  /// Creates a [StartGamePayload].
+  const StartGamePayload({required this.roundCount});
+
+  /// The number of rounds (5, 10, or 15).
+  final int roundCount;
+
+  /// Converts to JSON map.
+  Map<String, dynamic> toJson() => {'roundCount': roundCount};
+}
+
+/// Wire payload for server→client game started broadcast.
+class GameStartedPayload {
+  /// Creates a [GameStartedPayload].
+  const GameStartedPayload({required this.roundCount});
+
+  /// Creates from JSON map.
+  factory GameStartedPayload.fromJson(Map<String, dynamic> json) {
+    return GameStartedPayload(
+      roundCount: (json['roundCount'] as num?)?.toInt() ?? 10,
+    );
+  }
+
+  /// The number of rounds.
+  final int roundCount;
 }
 
 /// Error response payload.

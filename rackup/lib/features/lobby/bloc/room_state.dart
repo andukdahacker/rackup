@@ -44,6 +44,8 @@ class RoomLobby extends RoomState {
     required this.players,
     required this.roomCode,
     required this.jwt,
+    required this.hostDeviceIdHash,
+    this.allReadyOrTimedOut = false,
   });
 
   /// All players currently in the lobby.
@@ -55,8 +57,31 @@ class RoomLobby extends RoomState {
   /// The JWT for WebSocket authentication.
   final String jwt;
 
+  /// The host's device ID hash.
+  final String hostDeviceIdHash;
+
+  /// Whether all punishments are submitted or the timeout has elapsed.
+  final bool allReadyOrTimedOut;
+
+  /// Whether all players have submitted punishments (status == ready).
+  bool get allPunishmentsReady =>
+      players.isNotEmpty &&
+      players.every((p) => p.status == PlayerStatus.ready);
+
   @override
-  List<Object?> get props => [players, roomCode, jwt];
+  List<Object?> get props =>
+      [players, roomCode, jwt, hostDeviceIdHash, allReadyOrTimedOut];
+}
+
+/// Game is starting — transitioning from lobby to game.
+class RoomStarting extends RoomState {
+  const RoomStarting({required this.roundCount});
+
+  /// The configured number of rounds.
+  final int roundCount;
+
+  @override
+  List<Object?> get props => [roundCount];
 }
 
 /// Room creation failed.

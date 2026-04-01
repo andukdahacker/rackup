@@ -49,10 +49,32 @@ final GoRouter appRouter = GoRouter(
           path: '/lobby',
           builder: (context, state) => const LobbyPage(),
         ),
+        GoRoute(
+          path: '/game',
+          builder: (context, state) => const _GamePlaceholder(),
+        ),
       ],
     ),
   ],
 );
+
+/// Placeholder game screen — replaced by Epic 3, Story 3.1.
+class _GamePlaceholder extends StatelessWidget {
+  const _GamePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF0F0E1A),
+      body: Center(
+        child: Text(
+          'Game starting...',
+          style: TextStyle(color: Color(0xFFF0EDF6), fontSize: 24),
+        ),
+      ),
+    );
+  }
+}
 
 /// Shell widget that provides WebSocketCubit and RoomBloc to all child routes.
 class _RoomShell extends StatefulWidget {

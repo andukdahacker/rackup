@@ -39,7 +39,7 @@ class CreateRoomPage extends StatelessWidget {
               RoomInitial() => const _InitialView(),
               RoomCreating() || RoomJoining() => const _LoadingView(),
               RoomCreatedState() => const _LoadingView(),
-              RoomLobby() => const SizedBox.shrink(),
+              RoomLobby() || RoomStarting() => const SizedBox.shrink(),
               RoomError() => _ErrorView(message: state.message),
             };
           },

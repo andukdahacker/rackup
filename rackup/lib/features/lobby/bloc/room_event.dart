@@ -60,6 +60,8 @@ class RoomStateReceived extends RoomEvent {
   const RoomStateReceived({
     required this.players,
     required this.roomCode,
+    required this.hostDeviceIdHash,
+    required this.allReadyOrTimedOut,
   });
 
   /// All players in the room.
@@ -68,8 +70,15 @@ class RoomStateReceived extends RoomEvent {
   /// The room code.
   final String roomCode;
 
+  /// The host's device ID hash.
+  final String hostDeviceIdHash;
+
+  /// Whether all punishments are submitted or the timeout has elapsed.
+  final bool allReadyOrTimedOut;
+
   @override
-  List<Object?> get props => [players, roomCode];
+  List<Object?> get props =>
+      [players, roomCode, hostDeviceIdHash, allReadyOrTimedOut];
 }
 
 /// A new player joined the lobby (lobby.player_joined).
@@ -120,6 +129,28 @@ class PunishmentSubmitted extends RoomEvent {
 
   @override
   List<Object?> get props => [text];
+}
+
+/// Host requested to start the game (imperative — user action).
+class StartGameRequested extends RoomEvent {
+  const StartGameRequested({required this.roundCount});
+
+  /// The configured round count (5, 10, or 15).
+  final int roundCount;
+
+  @override
+  List<Object?> get props => [roundCount];
+}
+
+/// Game has started (past tense — server event).
+class GameStarted extends RoomEvent {
+  const GameStarted({required this.roundCount});
+
+  /// The round count from the server.
+  final int roundCount;
+
+  @override
+  List<Object?> get props => [roundCount];
 }
 
 /// Resets the room state back to initial.

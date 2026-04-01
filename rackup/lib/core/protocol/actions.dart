@@ -17,7 +17,11 @@ abstract final class Actions {
   /// A player's lobby status changed.
   static const String lobbyPlayerStatusChanged = 'lobby.player_status_changed';
 
-  // Story 2.3: lobby.game_started — no handler in 2.1.
+  /// Host requests to start the game (client→server).
+  static const String lobbyStartGame = 'lobby.start_game';
+
+  /// Game has started — broadcast to all players (server→client).
+  static const String lobbyGameStarted = 'lobby.game_started';
 
   /// A game turn was completed.
   static const String gameTurnComplete = 'game.turn_complete';

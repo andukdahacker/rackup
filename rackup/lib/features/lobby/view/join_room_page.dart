@@ -52,7 +52,7 @@ class JoinRoomPage extends StatelessWidget {
                 ),
               RoomJoining() || RoomCreating() => const _LoadingView(),
               RoomCreatedState() => const _LoadingView(),
-              RoomLobby() => const SizedBox.shrink(),
+              RoomLobby() || RoomStarting() => const SizedBox.shrink(),
             };
           },
         ),

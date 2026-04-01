@@ -238,6 +238,8 @@ void main() {
         const RoomStateReceived(
           players: [player1],
           roomCode: 'ABCD',
+          hostDeviceIdHash: 'hash1',
+          allReadyOrTimedOut: false,
         ),
       ),
       expect: () => [
@@ -245,6 +247,7 @@ void main() {
           players: [player1],
           roomCode: 'ABCD',
           jwt: 'jwt-123',
+          hostDeviceIdHash: 'hash1',
         ),
       ],
     );
@@ -256,6 +259,7 @@ void main() {
         players: [player1],
         roomCode: 'ABCD',
         jwt: 'jwt-123',
+        hostDeviceIdHash: 'hash1',
       ),
       act: (bloc) => bloc.add(const PlayerJoined(player: player2)),
       expect: () => [
@@ -263,6 +267,7 @@ void main() {
           players: [player1, player2],
           roomCode: 'ABCD',
           jwt: 'jwt-123',
+          hostDeviceIdHash: 'hash1',
         ),
       ],
     );
@@ -274,6 +279,7 @@ void main() {
         players: [player1, player2],
         roomCode: 'ABCD',
         jwt: 'jwt-123',
+        hostDeviceIdHash: 'hash1',
       ),
       act: (bloc) => bloc.add(const PlayerJoined(player: player2)),
       // Same player list equals same state — Equatable prevents emit.
@@ -295,6 +301,7 @@ void main() {
         players: [player1, player2],
         roomCode: 'ABCD',
         jwt: 'jwt-123',
+        hostDeviceIdHash: 'hash1',
       ),
       act: (bloc) => bloc.add(const PlayerLeft(deviceIdHash: 'hash2')),
       expect: () => [
@@ -302,6 +309,7 @@ void main() {
           players: [player1],
           roomCode: 'ABCD',
           jwt: 'jwt-123',
+          hostDeviceIdHash: 'hash1',
         ),
       ],
     );
@@ -327,6 +335,7 @@ void main() {
         players: [player1, player2],
         roomCode: 'ABCD',
         jwt: 'jwt-123',
+        hostDeviceIdHash: 'hash1',
       ),
       act: (bloc) => bloc.add(const PlayerStatusChanged(
         deviceIdHash: 'hash2',
@@ -346,6 +355,7 @@ void main() {
           ],
           roomCode: 'ABCD',
           jwt: 'jwt-123',
+          hostDeviceIdHash: 'hash1',
         ),
       ],
     );
@@ -381,6 +391,7 @@ void main() {
         players: [player1],
         roomCode: 'ABCD',
         jwt: 'jwt-123',
+        hostDeviceIdHash: 'hash1',
       ),
       act: (bloc) => bloc.add(const PlayerStatusChanged(
         deviceIdHash: 'hash1',
@@ -399,8 +410,30 @@ void main() {
           ],
           roomCode: 'ABCD',
           jwt: 'jwt-123',
+          hostDeviceIdHash: 'hash1',
         ),
       ],
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'StartGameRequested sends message via WebSocket',
+      build: () {
+        when(() => webSocketCubit.sendMessage(any())).thenReturn(null);
+        return buildBloc();
+      },
+      act: (bloc) =>
+          bloc.add(const StartGameRequested(roundCount: 10)),
+      expect: () => <RoomState>[],
+      verify: (_) {
+        verify(() => webSocketCubit.sendMessage(any())).called(1);
+      },
+    );
+
+    blocTest<RoomBloc, RoomState>(
+      'GameStarted emits RoomStarting with roundCount',
+      build: buildBloc,
+      act: (bloc) => bloc.add(const GameStarted(roundCount: 15)),
+      expect: () => [const RoomStarting(roundCount: 15)],
     );
   });
 }
