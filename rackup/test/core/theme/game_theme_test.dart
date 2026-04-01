@@ -6,10 +6,10 @@ import 'package:rackup/core/theme/rackup_colors.dart';
 void main() {
   group('RackUpGameTheme', () {
     group('tierForProgression', () {
-      test('returns lobby for 0%', () {
+      test('returns mild for 0% (game start)', () {
         expect(
           RackUpGameTheme.tierForProgression(0),
-          EscalationTier.lobby,
+          EscalationTier.mild,
         );
       });
 
@@ -115,13 +115,13 @@ void main() {
     });
 
     group('fromProgression', () {
-      test('creates correct data for lobby', () {
+      test('creates correct data for mild at 0%', () {
         final data = RackUpGameTheme.fromProgression(
           percentage: 0,
           animationsEnabled: true,
         );
-        expect(data.tier, EscalationTier.lobby);
-        expect(data.backgroundColor, RackUpColors.tierLobby);
+        expect(data.tier, EscalationTier.mild);
+        expect(data.backgroundColor, RackUpColors.tierMild);
         expect(data.animationsEnabled, isTrue);
       });
 

@@ -227,6 +227,92 @@ class GameStartedPayload {
   final int roundCount;
 }
 
+/// Wire payload for a single player in game initialization messages.
+class GamePlayerPayload {
+  /// Creates a [GamePlayerPayload].
+  const GamePlayerPayload({
+    required this.deviceIdHash,
+    required this.displayName,
+    required this.slot,
+    required this.score,
+    required this.streak,
+    required this.isReferee,
+  });
+
+  /// Creates from JSON map.
+  factory GamePlayerPayload.fromJson(Map<String, dynamic> json) {
+    return GamePlayerPayload(
+      deviceIdHash: json['deviceIdHash'] as String,
+      displayName: json['displayName'] as String,
+      slot: json['slot'] as int,
+      score: json['score'] as int,
+      streak: json['streak'] as int,
+      isReferee: json['isReferee'] as bool,
+    );
+  }
+
+  /// SHA-256 hash of the player's device ID.
+  final String deviceIdHash;
+
+  /// The player's display name.
+  final String displayName;
+
+  /// 1-based slot index (1–8).
+  final int slot;
+
+  /// The player's current score.
+  final int score;
+
+  /// The player's current streak.
+  final int streak;
+
+  /// Whether this player is the referee.
+  final bool isReferee;
+}
+
+/// Wire payload for server→client game.initialized broadcast.
+class GameInitializedPayload {
+  /// Creates a [GameInitializedPayload].
+  const GameInitializedPayload({
+    required this.roundCount,
+    required this.refereeDeviceIdHash,
+    required this.turnOrder,
+    required this.currentShooterDeviceIdHash,
+    required this.players,
+  });
+
+  /// Creates from JSON map.
+  factory GameInitializedPayload.fromJson(Map<String, dynamic> json) {
+    final playersList = (json['players'] as List<dynamic>)
+        .map((e) => GamePlayerPayload.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return GameInitializedPayload(
+      roundCount: json['roundCount'] as int,
+      refereeDeviceIdHash: json['refereeDeviceIdHash'] as String,
+      turnOrder:
+          (json['turnOrder'] as List<dynamic>).cast<String>(),
+      currentShooterDeviceIdHash:
+          json['currentShooterDeviceIdHash'] as String,
+      players: playersList,
+    );
+  }
+
+  /// The number of rounds.
+  final int roundCount;
+
+  /// The referee's device ID hash.
+  final String refereeDeviceIdHash;
+
+  /// Device ID hashes in play order.
+  final List<String> turnOrder;
+
+  /// The current shooter's device ID hash.
+  final String currentShooterDeviceIdHash;
+
+  /// All players with their game state.
+  final List<GamePlayerPayload> players;
+}
+
 /// Error response payload.
 class ErrorResponse {
   /// Creates an [ErrorResponse].

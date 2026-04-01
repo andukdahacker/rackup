@@ -23,8 +23,14 @@ abstract final class Actions {
   /// Game has started — broadcast to all players (server→client).
   static const String lobbyGameStarted = 'lobby.game_started';
 
+  /// Game initialized — server broadcasts full game state (server→client).
+  static const String gameInitialized = 'game.initialized';
+
   /// A game turn was completed.
   static const String gameTurnComplete = 'game.turn_complete';
+
+  /// Referee confirms a shot result (client→server, referee-only).
+  static const String refereeConfirmShot = 'referee.confirm_shot';
 
   /// An error occurred.
   static const String error = 'error';

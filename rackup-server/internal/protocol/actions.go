@@ -9,5 +9,7 @@ const (
 	ActionLobbyPlayerStatusChanged = "lobby.player_status_changed"
 	ActionLobbyStartGame           = "lobby.start_game"
 	ActionLobbyGameStarted         = "lobby.game_started"
+	ActionGameInitialized          = "game.initialized"
+	ActionRefereeConfirmShot       = "referee.confirm_shot"
 	ActionError                    = "error"
 )

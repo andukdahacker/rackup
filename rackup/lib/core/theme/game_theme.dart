@@ -110,7 +110,7 @@ class RackUpGameTheme extends InheritedWidget {
   /// - 30–70% → [EscalationTier.medium]
   /// - 70–100% → [EscalationTier.spicy]
   static EscalationTier tierForProgression(double percentage) {
-    if (percentage.isNaN || percentage <= 0) return EscalationTier.lobby;
+    if (percentage.isNaN || percentage < 0) return EscalationTier.lobby;
     final clamped = percentage.clamp(0, 100).toDouble();
     if (clamped <= 30) return EscalationTier.mild;
     if (clamped <= 70) return EscalationTier.medium;

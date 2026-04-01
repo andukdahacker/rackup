@@ -47,6 +47,25 @@ type GameStartedPayload struct {
 	RoundCount int `json:"roundCount"`
 }
 
+// GamePlayerPayload represents a single player in game initialization messages.
+type GamePlayerPayload struct {
+	DeviceIDHash string `json:"deviceIdHash"`
+	DisplayName  string `json:"displayName"`
+	Slot         int    `json:"slot"`
+	Score        int    `json:"score"`
+	Streak       int    `json:"streak"`
+	IsReferee    bool   `json:"isReferee"`
+}
+
+// GameInitializedPayload is the server→client payload for game.initialized broadcast.
+type GameInitializedPayload struct {
+	RoundCount               int                 `json:"roundCount"`
+	RefereeDeviceIDHash      string              `json:"refereeDeviceIdHash"`
+	TurnOrder                []string             `json:"turnOrder"`
+	CurrentShooterDeviceIDHash string            `json:"currentShooterDeviceIdHash"`
+	Players                  []GamePlayerPayload  `json:"players"`
+}
+
 // ErrorPayload is the payload for action "error".
 type ErrorPayload struct {
 	Code    string `json:"code"`

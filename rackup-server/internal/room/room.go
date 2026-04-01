@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ducdo/rackup-server/internal/game"
 	"github.com/ducdo/rackup-server/internal/protocol"
 )
 
@@ -53,6 +54,7 @@ type Room struct {
 	punishmentPhaseStartedAt time.Time             // set when first player joins; used by Story 2.3
 	roundCount               int                   // configured round count (5, 10, or 15)
 	gameStarted              bool                  // prevents double-start
+	gameState                *game.GameState       // active game session state
 	timeoutBroadcast         bool                  // ensures timeout room_state broadcast fires once
 	createdAt                time.Time
 	actions                  chan Action
@@ -459,6 +461,10 @@ func (r *Room) handleClientMessage(deviceHash string, raw json.RawMessage) {
 		r.handleStartGame(deviceHash, msg.Payload)
 
 	default:
+		if strings.HasPrefix(msg.Action, "game.") || strings.HasPrefix(msg.Action, "referee.") {
+			r.handleGameAction(deviceHash, msg.Action)
+			return
+		}
 		slog.Debug("unhandled client action", "code", r.code, "action", msg.Action)
 	}
 }
@@ -547,7 +553,68 @@ func (r *Room) handleStartGame(deviceHash string, raw json.RawMessage) {
 		Action:  protocol.ActionLobbyGameStarted,
 		Payload: startedPayload,
 	})
+
+	// Initialize game state.
+	playerNames := make(map[string]string, len(r.players))
+	for dh, pc := range r.players {
+		playerNames[dh] = pc.DisplayName()
+	}
+	r.gameState = game.NewGameState(playerNames, r.slotAssignments, r.roundCount, r.hostDeviceHash)
+
+	// Build and broadcast game.initialized payload.
+	gamePlayers := make([]protocol.GamePlayerPayload, 0, len(r.gameState.Players))
+	for _, dh := range r.gameState.TurnOrder {
+		gp := r.gameState.Players[dh]
+		gamePlayers = append(gamePlayers, protocol.GamePlayerPayload{
+			DeviceIDHash: gp.DeviceIDHash,
+			DisplayName:  gp.DisplayName,
+			Slot:         gp.Slot,
+			Score:        gp.Score,
+			Streak:       gp.Streak,
+			IsReferee:    gp.IsReferee,
+		})
+	}
+	gameInitPayload, err := json.Marshal(protocol.GameInitializedPayload{
+		RoundCount:                 r.roundCount,
+		RefereeDeviceIDHash:        r.gameState.RefereeDeviceIDHash,
+		TurnOrder:                  r.gameState.TurnOrder,
+		CurrentShooterDeviceIDHash: r.gameState.CurrentShooterDeviceIDHash(),
+		Players:                    gamePlayers,
+	})
+	if err != nil {
+		slog.Error("failed to marshal game initialized payload", "code", r.code, "error", err)
+		r.mu.Unlock()
+		return
+	}
+	r.broadcastLocked(protocol.Message{
+		Action:  protocol.ActionGameInitialized,
+		Payload: gameInitPayload,
+	})
 	r.mu.Unlock()
+}
+
+// handleGameAction validates referee authority for game/referee-namespaced actions.
+// Note: gs is read under lock then used after unlock. This is safe because GameState
+// is immutable after construction — fields are never mutated, only replaced atomically.
+func (r *Room) handleGameAction(deviceHash, action string) {
+	r.mu.RLock()
+	gs := r.gameState
+	r.mu.RUnlock()
+
+	if gs == nil {
+		r.sendErrorToPlayer(deviceHash, "GAME_NOT_STARTED", "Game has not started")
+		return
+	}
+
+	// Referee-namespaced actions require referee authority.
+	if strings.HasPrefix(action, "referee.") {
+		if !gs.IsReferee(deviceHash) {
+			r.sendErrorToPlayer(deviceHash, "NOT_REFEREE", "Only the referee can perform this action")
+			return
+		}
+	}
+
+	slog.Debug("game action received", "code", r.code, "action", action, "device", deviceHash)
 }
 
 // sendErrorToPlayer sends an error message to a specific player.

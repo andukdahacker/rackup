@@ -1088,6 +1088,9 @@ func TestStartGame_AllPunishmentsSubmitted(t *testing.T) {
 	if msg2.Action != protocol.ActionLobbyGameStarted {
 		t.Errorf("player2 expected game_started, got %q", msg2.Action)
 	}
+	// Drain game.initialized broadcasts.
+	readMessage(t, serverConn1)
+	readMessage(t, serverConn2)
 }
 
 func TestStartGame_TimeoutElapsed(t *testing.T) {
@@ -1128,6 +1131,8 @@ func TestStartGame_TimeoutElapsed(t *testing.T) {
 	if msg.Action != protocol.ActionLobbyGameStarted {
 		t.Errorf("expected game_started, got %q", msg.Action)
 	}
+	// Drain game.initialized broadcast.
+	readMessage(t, serverConn1)
 }
 
 func TestStartGame_InvalidRoundCount(t *testing.T) {
@@ -1164,17 +1169,25 @@ func TestStartGame_BroadcastsToAll(t *testing.T) {
 	if msg2.Action != protocol.ActionLobbyGameStarted {
 		t.Errorf("player2: expected game_started, got %q", msg2.Action)
 	}
+	// Drain game.initialized broadcasts.
+	readMessage(t, serverConn1)
+	readMessage(t, serverConn2)
 }
 
 func TestStartGame_DoubleStart(t *testing.T) {
 	r, cancel, serverConn1, _ := setupTwoPlayerRoom(t)
 	defer cancel()
 
-	// First start — succeeds.
+	// First start — succeeds (two broadcasts: lobby.game_started + game.initialized).
 	sendStartGame(t, r, "host-hash", 10)
 	msg1 := readMessage(t, serverConn1)
 	if msg1.Action != protocol.ActionLobbyGameStarted {
 		t.Fatalf("first start: expected game_started, got %q", msg1.Action)
+	}
+	// Drain game.initialized broadcast.
+	gameInitMsg := readMessage(t, serverConn1)
+	if gameInitMsg.Action != protocol.ActionGameInitialized {
+		t.Fatalf("expected game.initialized, got %q", gameInitMsg.Action)
 	}
 
 	// Second start — should fail.
@@ -1189,5 +1202,162 @@ func TestStartGame_DoubleStart(t *testing.T) {
 	}
 	if errPayload.Code != "GAME_ALREADY_STARTED" {
 		t.Errorf("expected GAME_ALREADY_STARTED, got %q", errPayload.Code)
+	}
+}
+
+// --- Story 3.1: Game Initialization & Referee Tests ---
+
+func setupThreePlayerRoom(t *testing.T) (*Room, context.CancelFunc, *websocket.Conn, *websocket.Conn, *websocket.Conn) {
+	t.Helper()
+	r, cancel := newTestRoom(t)
+
+	pumpCtx, pumpCancel := context.WithCancel(context.Background())
+	t.Cleanup(pumpCancel)
+
+	// Host — slot 1.
+	clientConn1, serverConn1 := newWSPair(t)
+	pc1 := NewPlayerConn(clientConn1, "host-hash", "Host")
+	go pc1.WritePump(pumpCtx)
+	if err := r.AddPlayer("host-hash", pc1); err != nil {
+		t.Fatalf("AddPlayer host failed: %v", err)
+	}
+	drainCtx1, drainCancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel1()
+	_, _, _ = serverConn1.Read(drainCtx1) // drain room_state
+
+	// Player2 — slot 2.
+	clientConn2, serverConn2 := newWSPair(t)
+	pc2 := NewPlayerConn(clientConn2, "player2", "Bob")
+	go pc2.WritePump(pumpCtx)
+	if err := r.AddPlayer("player2", pc2); err != nil {
+		t.Fatalf("AddPlayer player2 failed: %v", err)
+	}
+	drainCtx2, drainCancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel2()
+	_, _, _ = serverConn2.Read(drainCtx2) // drain room_state for player2
+	drainCtx3, drainCancel3 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel3()
+	_, _, _ = serverConn1.Read(drainCtx3) // drain player_joined for host
+
+	// Player3 — slot 3.
+	clientConn3, serverConn3 := newWSPair(t)
+	pc3 := NewPlayerConn(clientConn3, "player3", "Carol")
+	go pc3.WritePump(pumpCtx)
+	if err := r.AddPlayer("player3", pc3); err != nil {
+		t.Fatalf("AddPlayer player3 failed: %v", err)
+	}
+	// Drain room_state for player3 and player_joined for host + player2.
+	drainCtx4, drainCancel4 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel4()
+	_, _, _ = serverConn3.Read(drainCtx4)
+	drainCtx5, drainCancel5 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel5()
+	_, _, _ = serverConn1.Read(drainCtx5)
+	drainCtx6, drainCancel6 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer drainCancel6()
+	_, _, _ = serverConn2.Read(drainCtx6)
+
+	// Submit punishments for all.
+	r.mu.Lock()
+	r.punishments["host-hash"] = "test1"
+	r.punishments["player2"] = "test2"
+	r.punishments["player3"] = "test3"
+	r.playerStatuses["host-hash"] = "ready"
+	r.playerStatuses["player2"] = "ready"
+	r.playerStatuses["player3"] = "ready"
+	r.mu.Unlock()
+
+	return r, cancel, serverConn1, serverConn2, serverConn3
+}
+
+func TestGameInitialized_RefereeActionRejected(t *testing.T) {
+	r, cancel, serverConn1, serverConn2, _ := setupThreePlayerRoom(t)
+	defer cancel()
+
+	sendStartGame(t, r, "host-hash", 10)
+
+	// Drain lobby.game_started and game.initialized for host.
+	readMessage(t, serverConn1) // lobby.game_started
+	readMessage(t, serverConn1) // game.initialized
+
+	// Non-referee (host) sends a referee action.
+	refereeMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionRefereeConfirmShot,
+		Payload: json.RawMessage(`{}`),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  "host-hash",
+		Payload: refereeMsg,
+	})
+
+	// Drain lobby.game_started and game.initialized for player2, then read error.
+	readMessage(t, serverConn2) // lobby.game_started
+	readMessage(t, serverConn2) // game.initialized
+
+	// Host should receive NOT_REFEREE error.
+	errMsg := readMessage(t, serverConn1)
+	if errMsg.Action != protocol.ActionError {
+		t.Fatalf("expected error action, got %q", errMsg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(errMsg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "NOT_REFEREE" {
+		t.Errorf("expected NOT_REFEREE, got %q", errPayload.Code)
+	}
+}
+
+func TestGameInitialized_PayloadBroadcast(t *testing.T) {
+	r, cancel, serverConn1, _, _ := setupThreePlayerRoom(t)
+	defer cancel()
+
+	sendStartGame(t, r, "host-hash", 10)
+
+	// Drain lobby.game_started.
+	readMessage(t, serverConn1)
+
+	// Read game.initialized.
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionGameInitialized {
+		t.Fatalf("expected game.initialized, got %q", msg.Action)
+	}
+
+	var payload protocol.GameInitializedPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if payload.RoundCount != 10 {
+		t.Errorf("expected roundCount 10, got %d", payload.RoundCount)
+	}
+	// Referee should be the first non-host player in slot order.
+	// In setupThreePlayerRoom: host-hash=slot1, player2=slot2, player3=slot3.
+	// So the first non-host is player2.
+	if payload.RefereeDeviceIDHash == "host-hash" {
+		t.Errorf("referee should not be host in 3-player game, got %q", payload.RefereeDeviceIDHash)
+	}
+	if payload.RefereeDeviceIDHash == "" {
+		t.Error("referee device ID hash should be set")
+	}
+	if len(payload.TurnOrder) != 3 {
+		t.Fatalf("expected 3 players in turn order, got %d", len(payload.TurnOrder))
+	}
+	if len(payload.Players) != 3 {
+		t.Fatalf("expected 3 players, got %d", len(payload.Players))
+	}
+	if payload.CurrentShooterDeviceIDHash == "" {
+		t.Error("expected current shooter to be set")
+	}
+
+	// Verify all expected fields in player payloads.
+	for _, p := range payload.Players {
+		if p.DeviceIDHash == "" || p.DisplayName == "" || p.Slot == 0 {
+			t.Errorf("player payload missing fields: %+v", p)
+		}
+		if p.Score != 0 || p.Streak != 0 {
+			t.Errorf("expected initial score=0 streak=0, got score=%d streak=%d", p.Score, p.Streak)
+		}
 	}
 }

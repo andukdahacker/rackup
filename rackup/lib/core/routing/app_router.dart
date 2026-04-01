@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:rackup/core/config/app_config.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/services/room_api_service.dart';
+import 'package:rackup/core/websocket/game_message_listener.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
+import 'package:rackup/features/game/bloc/game_bloc.dart';
+import 'package:rackup/features/game/view/game_page.dart';
 import 'package:rackup/features/home/view/home_page.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
 import 'package:rackup/features/lobby/view/create_room_page.dart';
@@ -51,32 +54,14 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/game',
-          builder: (context, state) => const _GamePlaceholder(),
+          builder: (context, state) => const GamePage(),
         ),
       ],
     ),
   ],
 );
 
-/// Placeholder game screen — replaced by Epic 3, Story 3.1.
-class _GamePlaceholder extends StatelessWidget {
-  const _GamePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF0F0E1A),
-      body: Center(
-        child: Text(
-          'Game starting...',
-          style: TextStyle(color: Color(0xFFF0EDF6), fontSize: 24),
-        ),
-      ),
-    );
-  }
-}
-
-/// Shell widget that provides WebSocketCubit and RoomBloc to all child routes.
+/// Shell widget that provides WebSocketCubit, RoomBloc, and GameBloc to all child routes.
 class _RoomShell extends StatefulWidget {
   const _RoomShell({required this.child});
 
@@ -89,11 +74,14 @@ class _RoomShell extends StatefulWidget {
 class _RoomShellState extends State<_RoomShell> {
   late final WebSocketCubit _wsCubit;
   late final RoomBloc _roomBloc;
+  late final GameBloc _gameBloc;
+  GameMessageListener? _gameMessageListener;
 
   @override
   void initState() {
     super.initState();
     _wsCubit = WebSocketCubit();
+    _gameBloc = GameBloc();
   }
 
   @override
@@ -107,6 +95,10 @@ class _RoomShellState extends State<_RoomShell> {
         webSocketCubit: _wsCubit,
         config: context.read<AppConfig>(),
       );
+      _gameMessageListener = GameMessageListener(
+        webSocketCubit: _wsCubit,
+        gameBloc: _gameBloc,
+      );
       _blocCreated = true;
     }
   }
@@ -115,6 +107,8 @@ class _RoomShellState extends State<_RoomShell> {
 
   @override
   void dispose() {
+    _gameMessageListener?.dispose();
+    _gameBloc.close();
     _roomBloc.close();
     _wsCubit.close();
     super.dispose();
@@ -126,6 +120,7 @@ class _RoomShellState extends State<_RoomShell> {
       providers: [
         BlocProvider<WebSocketCubit>.value(value: _wsCubit),
         BlocProvider<RoomBloc>.value(value: _roomBloc),
+        BlocProvider<GameBloc>.value(value: _gameBloc),
       ],
       child: widget.child,
     );
