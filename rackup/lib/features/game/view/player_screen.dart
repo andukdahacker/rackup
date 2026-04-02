@@ -5,11 +5,10 @@ import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/widgets/player_name_tag.dart';
-import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
+import 'package:rackup/features/game/view/widgets/leaderboard_row.dart';
 import 'package:rackup/features/game/view/widgets/progress_tier_bar.dart';
-import 'package:rackup/features/game/view/widgets/streak_fire_indicator.dart';
 
 /// The Player Screen — 4-region layout for non-referee players.
 ///
@@ -177,20 +176,21 @@ class PlayerScreen extends StatelessWidget {
     LeaderboardActive state,
   ) {
     final entries = state.entries;
-    // Build previous rank map for position-shuffle animation.
-    final prevRankMap = <String, int>{};
-    for (final e in state.previousEntries) {
-      prevRankMap[e.deviceIdHash] = entries.indexWhere(
-        (c) => c.deviceIdHash == e.deviceIdHash,
-      );
-    }
+    // Build previous index map for position-shuffle animation.
     final prevIndexMap = <String, int>{};
     for (final (i, prev) in state.previousEntries.indexed) {
       prevIndexMap[prev.deviceIdHash] = i;
     }
+    // Build previous score/rank maps for visual indicators.
+    final prevScoreMap = <String, int>{};
+    final prevRankMap = <String, int>{};
+    for (final prev in state.previousEntries) {
+      prevScoreMap[prev.deviceIdHash] = prev.score;
+      prevRankMap[prev.deviceIdHash] = prev.rank;
+    }
 
-    // CascadeTiming is available via state.cascadeProfile for future
-    // dramatic pacing integration (e.g., delaying event feed rendering).
+    final animationsEnabled =
+        RackUpGameTheme.maybeOf(context)?.animationsEnabled ?? true;
 
     return Column(
       children: [
@@ -208,36 +208,74 @@ class PlayerScreen extends StatelessWidget {
               final isMilestone = state.streakMilestone &&
                   entry.deviceIdHash == state.shooterHash;
 
+              // Score delta for "+N" indicator.
+              final prevScore = prevScoreMap[entry.deviceIdHash];
+              final scoreDelta =
+                  prevScore != null ? entry.score - prevScore : 0;
+
+              // Rank change indicator.
+              final prevRank = prevRankMap[entry.deviceIdHash];
+              final bool? rankImproved;
+              if (prevRank != null && prevRank != entry.rank) {
+                rankImproved = entry.rank < prevRank; // lower rank = better
+              } else {
+                rankImproved = null;
+              }
+
               // Position-shuffle animation: slide from previous index.
               final prevIndex = prevIndexMap[entry.deviceIdHash];
               final indexDelta =
                   prevIndex != null ? prevIndex - index : 0;
 
-              Widget row = _buildEntryRow(
-                context,
+              Widget row = LeaderboardRow(
                 entry: entry,
+                players: players,
                 isSelf: isSelf,
                 isShooter: isShooter,
                 isLeader: isLeader,
                 isMilestone: isMilestone,
+                scoreDelta: scoreDelta,
+                rankImproved: rankImproved,
+                rankChanged: entry.rankChanged,
               );
 
-              if (indexDelta != 0) {
-                row = TweenAnimationBuilder<Offset>(
-                  key: ValueKey('anim-${entry.deviceIdHash}'),
-                  tween: Tween(
-                    begin: Offset(0, indexDelta.toDouble()),
-                    end: Offset.zero,
-                  ),
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  builder: (context, offset, child) {
-                    return FractionalTranslation(
-                      translation: offset,
-                      child: child,
-                    );
+              // Staggered position-shuffle animation (The Shuffle pattern).
+              if (indexDelta != 0 && animationsEnabled) {
+                // Wider stagger for streak milestones (80ms vs ~30ms).
+                final staggerMs =
+                    state.cascadeProfile == 'streak_milestone'
+                        ? 0.08
+                        : 0.06;
+                final staggerCurve = Interval(
+                  (index * staggerMs).clamp(0.0, 0.5),
+                  1.0,
+                  curve: Curves.easeOutCubic,
+                );
+
+                row = TweenAnimationBuilder<double>(
+                  key: ValueKey('opacity-${entry.deviceIdHash}'),
+                  tween: Tween(begin: 0.7, end: 1.0),
+                  duration: const Duration(milliseconds: 500),
+                  curve: staggerCurve,
+                  builder: (context, opacity, child) {
+                    return Opacity(opacity: opacity, child: child);
                   },
-                  child: row,
+                  child: TweenAnimationBuilder<Offset>(
+                    key: ValueKey('anim-${entry.deviceIdHash}'),
+                    tween: Tween(
+                      begin: Offset(0, indexDelta.toDouble()),
+                      end: Offset.zero,
+                    ),
+                    duration: const Duration(milliseconds: 500),
+                    curve: staggerCurve,
+                    builder: (context, offset, child) {
+                      return FractionalTranslation(
+                        translation: offset,
+                        child: child,
+                      );
+                    },
+                    child: row,
+                  ),
                 );
               }
 
@@ -246,105 +284,6 @@ class PlayerScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildEntryRow(
-    BuildContext context, {
-    required LeaderboardEntry entry,
-    required bool isSelf,
-    required bool isShooter,
-    required bool isLeader,
-    required bool isMilestone,
-  }) {
-    return Padding(
-      key: ValueKey(entry.deviceIdHash),
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          // Leader gets subtle radial glow.
-          boxShadow: isLeader
-              ? [
-                  BoxShadow(
-                    color:
-                        RackUpColors.streakGold.withValues(alpha: 0.15),
-                    blurRadius: 12,
-                  ),
-                ]
-              : null,
-          // Self row gets blue tint.
-          color: isSelf
-              ? RackUpColors.itemBlue.withValues(alpha: 0.1)
-              : null,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-          child: Row(
-            children: [
-              // Rank number.
-              SizedBox(
-                width: 28,
-                child: Text(
-                  '${entry.rank}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isLeader
-                        ? RackUpColors.streakGold
-                        : RackUpColors.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                  textScaler:
-                      ClampedTextScaler.of(context, TextRole.body),
-                ),
-              ),
-              if (isShooter)
-                const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Icon(
-                    Icons.sports_basketball,
-                    color: RackUpColors.streakGold,
-                    size: 16,
-                  ),
-                ),
-              Expanded(
-                child: PlayerNameTag(
-                  displayName: entry.displayName,
-                  slot: players
-                          .where(
-                            (p) => p.deviceIdHash == entry.deviceIdHash,
-                          )
-                          .firstOrNull
-                          ?.slot ??
-                      1,
-                  tagState: isSelf
-                      ? PlayerNameTagState.highlighted
-                      : PlayerNameTagState.normal,
-                ),
-              ),
-              if (entry.streakLabel.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: StreakFireIndicator(
-                    streakLabel: entry.streakLabel,
-                    isMilestone: isMilestone,
-                  ),
-                ),
-              Text(
-                '${entry.score}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: RackUpColors.textPrimary,
-                ),
-                textScaler:
-                    ClampedTextScaler.of(context, TextRole.body),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

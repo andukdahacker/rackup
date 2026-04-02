@@ -20,12 +20,15 @@ class LeaderboardBloc extends Bloc<LeaderboardEvent, LeaderboardState> {
       _ => const [],
     };
 
+    final shuffleOccurred = event.entries.any((e) => e.rankChanged);
+
     emit(LeaderboardActive(
       entries: event.entries,
       previousEntries: previousEntries,
       shooterHash: event.shooterHash,
       streakMilestone: event.streakMilestone,
       cascadeProfile: event.cascadeProfile,
+      shuffleOccurred: shuffleOccurred,
     ));
   }
 }

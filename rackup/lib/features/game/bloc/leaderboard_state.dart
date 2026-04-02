@@ -22,6 +22,7 @@ class LeaderboardActive extends LeaderboardState {
     this.shooterHash = '',
     this.streakMilestone = false,
     this.cascadeProfile = 'routine',
+    this.shuffleOccurred = false,
   });
 
   /// Current sorted leaderboard entries.
@@ -39,7 +40,16 @@ class LeaderboardActive extends LeaderboardState {
   /// Cascade timing profile.
   final String cascadeProfile;
 
+  /// True when any entry has rankChanged — consumed by AudioListener (Story 3.6).
+  final bool shuffleOccurred;
+
   @override
-  List<Object?> get props =>
-      [entries, previousEntries, shooterHash, streakMilestone, cascadeProfile];
+  List<Object?> get props => [
+        entries,
+        previousEntries,
+        shooterHash,
+        streakMilestone,
+        cascadeProfile,
+        shuffleOccurred,
+      ];
 }

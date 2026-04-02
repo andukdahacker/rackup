@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:rackup/core/theme/clamped_text_scaler.dart';
 import 'package:rackup/core/theme/player_identity.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
@@ -11,6 +12,9 @@ enum PlayerNameTagSize {
 
   /// Standard: 16dp shape, 16dp name.
   standard(shapeSize: 16, fontSize: 16),
+
+  /// Leaderboard: 16dp shape, 16dp name (Oswald SemiBold).
+  leaderboard(shapeSize: 16, fontSize: 16),
 
   /// Large: 24dp shape, 42dp name (Oswald).
   large(shapeSize: 24, fontSize: 42);
@@ -60,6 +64,9 @@ class PlayerNameTag extends StatelessWidget {
   /// Visual state.
   final PlayerNameTagState tagState;
 
+  bool get _useOswald =>
+      size == PlayerNameTagSize.leaderboard || size == PlayerNameTagSize.large;
+
   @override
   Widget build(BuildContext context) {
     final identity = PlayerIdentity.forSlot(slot);
@@ -79,14 +86,17 @@ class PlayerNameTag extends StatelessWidget {
           Flexible(
             child: Text(
               displayName,
-              style: TextStyle(
-                fontFamily: size == PlayerNameTagSize.large ? 'Oswald' : null,
-                fontSize: size.fontSize,
-                fontWeight: size == PlayerNameTagSize.large
-                    ? FontWeight.w600
-                    : FontWeight.normal,
-                color: identity.color,
-              ),
+              style: _useOswald
+                  ? GoogleFonts.oswald(
+                      fontSize: size.fontSize,
+                      fontWeight: FontWeight.w600,
+                      color: identity.color,
+                    )
+                  : TextStyle(
+                      fontSize: size.fontSize,
+                      fontWeight: FontWeight.normal,
+                      color: identity.color,
+                    ),
               overflow: TextOverflow.ellipsis,
               textScaler: ClampedTextScaler.of(
                 context,

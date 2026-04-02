@@ -9,7 +9,9 @@ import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/core/websocket/web_socket_state.dart';
+import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
+import 'package:rackup/features/game/bloc/leaderboard_event.dart';
 import 'package:rackup/features/game/view/referee_screen.dart';
 import 'package:rackup/features/game/view/widgets/big_binary_buttons.dart';
 import 'package:rackup/features/game/view/widgets/undo_button.dart';
@@ -222,6 +224,61 @@ void main() {
       // Verify buttons are rendered with text.
       expect(find.text('MADE'), findsOneWidget);
       expect(find.text('MISSED'), findsOneWidget);
+    });
+
+    testWidgets('RefereeScreen peek uses Oswald typography for scores',
+        (tester) async {
+      // Emit leaderboard entries so footer peek renders.
+      leaderboardBloc.add(const LeaderboardUpdated(
+        entries: [
+          LeaderboardEntry(
+            deviceIdHash: 'hash-a',
+            displayName: 'Alice',
+            score: 10,
+            streak: 0,
+            streakLabel: '',
+            rank: 1,
+          ),
+          LeaderboardEntry(
+            deviceIdHash: 'hash-b',
+            displayName: 'Bob',
+            score: 5,
+            streak: 0,
+            streakLabel: '',
+            rank: 2,
+          ),
+        ],
+      ));
+
+      await tester.pumpApp(
+        RefereeScreen(
+          currentRound: 1,
+          totalRounds: 10,
+          tier: EscalationTier.mild,
+          currentShooter: testShooter,
+          webSocketCubit: mockWsCubit,
+          leaderboardBloc: leaderboardBloc,
+        ),
+      );
+      await tester.pump();
+
+      // Footer should show scores for top entries.
+      expect(find.text('10'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
+
+      // Verify score text uses Oswald Bold (w700).
+      final scoreTexts = tester.widgetList<Text>(find.text('10'));
+      expect(scoreTexts, isNotEmpty);
+      final scoreStyle = scoreTexts.first.style!;
+      expect(scoreStyle.fontWeight, FontWeight.w700);
+      expect(scoreStyle.fontFamily, isNotNull);
+
+      // Verify display name uses Oswald SemiBold (w600).
+      final nameTexts = tester.widgetList<Text>(find.text('Alice'));
+      // Find the one in the footer (not stage area).
+      final footerNames = nameTexts.where((t) =>
+          t.style != null && t.style!.fontWeight == FontWeight.w600);
+      expect(footerNames, isNotEmpty);
     });
   });
 }

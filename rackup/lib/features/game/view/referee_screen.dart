@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/protocol/actions.dart' as proto;
 import 'package:rackup/core/protocol/messages.dart';
@@ -271,8 +272,9 @@ class _FooterLeaderboardEntry extends StatelessWidget {
         ),
         Text(
           entry.displayName,
-          style: const TextStyle(
+          style: GoogleFonts.oswald(
             fontSize: 12,
+            fontWeight: FontWeight.w600,
             color: RackUpColors.textSecondary,
           ),
           overflow: TextOverflow.ellipsis,
@@ -280,10 +282,10 @@ class _FooterLeaderboardEntry extends StatelessWidget {
         ),
         Text(
           '${entry.score}',
-          style: const TextStyle(
+          style: GoogleFonts.oswald(
             fontSize: 16,
+            fontWeight: FontWeight.w700,
             color: RackUpColors.textPrimary,
-            fontWeight: FontWeight.bold,
           ),
           textScaler: ClampedTextScaler.of(context, TextRole.body),
         ),

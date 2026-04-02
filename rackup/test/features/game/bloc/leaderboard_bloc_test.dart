@@ -114,5 +114,57 @@ void main() {
         ),
       ],
     );
+
+    blocTest<LeaderboardBloc, LeaderboardState>(
+      'shuffleOccurred is true when any entry has rankChanged',
+      build: LeaderboardBloc.new,
+      act: (bloc) => bloc.add(const LeaderboardUpdated(
+        entries: [
+          LeaderboardEntry(
+            deviceIdHash: 'hash-b',
+            displayName: 'Bob',
+            score: 15,
+            streak: 0,
+            streakLabel: '',
+            rank: 1,
+            rankChanged: true,
+          ),
+          LeaderboardEntry(
+            deviceIdHash: 'hash-a',
+            displayName: 'Alice',
+            score: 10,
+            streak: 0,
+            streakLabel: '',
+            rank: 2,
+            rankChanged: true,
+          ),
+        ],
+      )),
+      verify: (bloc) {
+        final state = bloc.state as LeaderboardActive;
+        expect(state.shuffleOccurred, isTrue);
+      },
+    );
+
+    blocTest<LeaderboardBloc, LeaderboardState>(
+      'shuffleOccurred is false when no entry has rankChanged',
+      build: LeaderboardBloc.new,
+      act: (bloc) => bloc.add(const LeaderboardUpdated(
+        entries: [
+          LeaderboardEntry(
+            deviceIdHash: 'hash-a',
+            displayName: 'Alice',
+            score: 13,
+            streak: 0,
+            streakLabel: '',
+            rank: 1,
+          ),
+        ],
+      )),
+      verify: (bloc) {
+        final state = bloc.state as LeaderboardActive;
+        expect(state.shuffleOccurred, isFalse);
+      },
+    );
   });
 }
