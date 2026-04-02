@@ -339,10 +339,21 @@ class TurnCompletePayload {
     required this.currentShooterHash,
     required this.currentRound,
     required this.isGameOver,
+    this.streakLabel = '',
+    this.streakMilestone = false,
+    this.leaderboard = const [],
+    this.cascadeProfile = 'routine',
   });
 
   /// Creates from JSON map.
   factory TurnCompletePayload.fromJson(Map<String, dynamic> json) {
+    final leaderboardList = (json['leaderboard'] as List<dynamic>?)
+            ?.map(
+              (e) =>
+                  LeaderboardEntryPayload.fromJson(e as Map<String, dynamic>),
+            )
+            .toList() ??
+        const [];
     return TurnCompletePayload(
       shooterHash: json['shooterHash'] as String,
       result: json['result'] as String,
@@ -352,6 +363,10 @@ class TurnCompletePayload {
       currentShooterHash: json['currentShooterHash'] as String,
       currentRound: json['currentRound'] as int,
       isGameOver: json['isGameOver'] as bool,
+      streakLabel: json['streakLabel'] as String? ?? '',
+      streakMilestone: json['streakMilestone'] as bool? ?? false,
+      leaderboard: leaderboardList,
+      cascadeProfile: json['cascadeProfile'] as String? ?? 'routine',
     );
   }
 
@@ -378,6 +393,67 @@ class TurnCompletePayload {
 
   /// Whether the game has ended.
   final bool isGameOver;
+
+  /// Streak label: "", "warming_up", "on_fire", "unstoppable".
+  final String streakLabel;
+
+  /// True when streak threshold was just crossed (2, 3, or 4).
+  final bool streakMilestone;
+
+  /// Leaderboard snapshot sorted by score descending.
+  final List<LeaderboardEntryPayload> leaderboard;
+
+  /// Cascade timing profile: "routine", "streak_milestone", etc.
+  final String cascadeProfile;
+}
+
+/// Wire payload for a single leaderboard entry.
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (LeaderboardEntry)
+class LeaderboardEntryPayload {
+  /// Creates a [LeaderboardEntryPayload].
+  const LeaderboardEntryPayload({
+    required this.deviceIdHash,
+    required this.displayName,
+    required this.score,
+    required this.streak,
+    required this.streakLabel,
+    required this.rank,
+    this.rankChanged = false,
+  });
+
+  /// Creates from JSON map.
+  factory LeaderboardEntryPayload.fromJson(Map<String, dynamic> json) {
+    return LeaderboardEntryPayload(
+      deviceIdHash: json['deviceIdHash'] as String,
+      displayName: json['displayName'] as String? ?? '',
+      score: json['score'] as int,
+      streak: json['streak'] as int,
+      streakLabel: json['streakLabel'] as String? ?? '',
+      rank: json['rank'] as int,
+      rankChanged: json['rankChanged'] as bool? ?? false,
+    );
+  }
+
+  /// The player's device ID hash.
+  final String deviceIdHash;
+
+  /// The player's display name.
+  final String displayName;
+
+  /// The player's current score.
+  final int score;
+
+  /// The player's current streak.
+  final int streak;
+
+  /// Streak label: "", "warming_up", "on_fire", "unstoppable".
+  final String streakLabel;
+
+  /// The player's rank (1-based).
+  final int rank;
+
+  /// Whether the player's rank changed this turn.
+  final bool rankChanged;
 }
 
 /// Error response payload.

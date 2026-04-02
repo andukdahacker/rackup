@@ -8,6 +8,7 @@ import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/player_screen.dart';
 import 'package:rackup/features/game/view/referee_screen.dart';
 import 'package:rackup/features/game/view/widgets/role_reveal_overlay.dart';
@@ -110,6 +111,7 @@ class _GamePageState extends State<GamePage> {
       tier: state.tier,
       currentShooter: currentShooter,
       webSocketCubit: context.read<WebSocketCubit>(),
+      leaderboardBloc: context.read<LeaderboardBloc>(),
     );
   }
 
@@ -121,6 +123,7 @@ class _GamePageState extends State<GamePage> {
       players: state.players,
       myDeviceIdHash: myDeviceIdHash,
       currentShooterDeviceIdHash: state.currentShooterDeviceIdHash,
+      leaderboardBloc: context.read<LeaderboardBloc>(),
     );
   }
 }

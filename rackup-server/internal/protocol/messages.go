@@ -73,14 +73,29 @@ type ConfirmShotPayload struct {
 
 // TurnCompletePayload is the server→client payload for game.turn_complete.
 type TurnCompletePayload struct {
-	ShooterHash        string `json:"shooterHash"`
-	Result             string `json:"result"`
-	PointsAwarded      int    `json:"pointsAwarded"`
-	NewScore           int    `json:"newScore"`
-	NewStreak          int    `json:"newStreak"`
-	CurrentShooterHash string `json:"currentShooterHash"` // next shooter
-	CurrentRound       int    `json:"currentRound"`
-	IsGameOver         bool   `json:"isGameOver"`
+	ShooterHash        string             `json:"shooterHash"`
+	Result             string             `json:"result"`
+	PointsAwarded      int                `json:"pointsAwarded"`
+	NewScore           int                `json:"newScore"`
+	NewStreak          int                `json:"newStreak"`
+	CurrentShooterHash string             `json:"currentShooterHash"` // next shooter
+	CurrentRound       int                `json:"currentRound"`
+	IsGameOver         bool               `json:"isGameOver"`
+	StreakLabel         string             `json:"streakLabel"`         // "", "warming_up", "on_fire", "unstoppable"
+	StreakMilestone     bool               `json:"streakMilestone"`     // true when streak threshold just crossed
+	Leaderboard        []LeaderboardEntry `json:"leaderboard"`         // sorted by score descending
+	CascadeProfile     string             `json:"cascadeProfile"`      // "routine", "streak_milestone", etc.
+}
+
+// LeaderboardEntry represents a single player's ranking in the leaderboard.
+type LeaderboardEntry struct {
+	DeviceIDHash string `json:"deviceIdHash"`
+	DisplayName  string `json:"displayName"`
+	Score        int    `json:"score"`
+	Streak       int    `json:"streak"`
+	StreakLabel   string `json:"streakLabel"`
+	Rank         int    `json:"rank"`
+	RankChanged  bool   `json:"rankChanged"`
 }
 
 // ErrorPayload is the payload for action "error".

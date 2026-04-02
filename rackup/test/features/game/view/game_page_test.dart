@@ -16,6 +16,7 @@ import 'package:rackup/core/websocket/web_socket_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/game_page.dart';
 import 'package:rackup/l10n/l10n.dart';
 
@@ -103,6 +104,7 @@ Widget _buildTestWidget({
         providers: [
           BlocProvider<GameBloc>.value(value: gameBloc),
           BlocProvider<WebSocketCubit>.value(value: webSocketCubit),
+          BlocProvider<LeaderboardBloc>(create: (_) => LeaderboardBloc()),
         ],
         child: Builder(
           builder: (context) {

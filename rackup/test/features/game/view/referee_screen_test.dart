@@ -9,6 +9,7 @@ import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/core/websocket/web_socket_state.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/referee_screen.dart';
 import 'package:rackup/features/game/view/widgets/big_binary_buttons.dart';
 import 'package:rackup/features/game/view/widgets/undo_button.dart';
@@ -38,6 +39,7 @@ class MockWebSocketCubit extends MockCubit<WebSocketState>
 void main() {
   group('RefereeScreen', () {
     late MockWebSocketCubit mockWsCubit;
+    late LeaderboardBloc leaderboardBloc;
 
     const testShooter = GamePlayer(
       deviceIdHash: 'hash-a',
@@ -50,9 +52,11 @@ void main() {
 
     setUp(() {
       mockWsCubit = MockWebSocketCubit();
+      leaderboardBloc = LeaderboardBloc();
     });
 
     tearDown(() {
+      leaderboardBloc.close();
       mockWsCubit.disposeController();
     });
 
@@ -64,6 +68,7 @@ void main() {
           tier: EscalationTier.mild,
           currentShooter: testShooter,
           webSocketCubit: mockWsCubit,
+          leaderboardBloc: leaderboardBloc,
         ),
       );
       // Pump a frame for animations to start.
@@ -94,6 +99,7 @@ void main() {
           tier: EscalationTier.mild,
           currentShooter: testShooter,
           webSocketCubit: mockWsCubit,
+          leaderboardBloc: leaderboardBloc,
         ),
       );
       await tester.pump();
@@ -125,6 +131,7 @@ void main() {
           tier: EscalationTier.mild,
           currentShooter: testShooter,
           webSocketCubit: mockWsCubit,
+          leaderboardBloc: leaderboardBloc,
         ),
       );
       await tester.pump();
@@ -145,6 +152,7 @@ void main() {
           tier: EscalationTier.mild,
           currentShooter: testShooter,
           webSocketCubit: mockWsCubit,
+          leaderboardBloc: leaderboardBloc,
         ),
       );
       await tester.pump();
@@ -176,6 +184,7 @@ void main() {
           tier: EscalationTier.mild,
           currentShooter: testShooter,
           webSocketCubit: mockWsCubit,
+          leaderboardBloc: leaderboardBloc,
         ),
       );
       await tester.pump();
@@ -205,6 +214,7 @@ void main() {
           tier: EscalationTier.mild,
           currentShooter: testShooter,
           webSocketCubit: mockWsCubit,
+          leaderboardBloc: leaderboardBloc,
         ),
       );
       await tester.pump();

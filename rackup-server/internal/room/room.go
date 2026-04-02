@@ -647,20 +647,24 @@ func (r *Room) handleConfirmShotLocked(deviceHash string, payload json.RawMessag
 		return
 	}
 
-	result, err := r.gameState.ProcessShot(r.gameState.CurrentShooterDeviceIDHash(), shotPayload.Result)
+	// Run consequence chain instead of direct ProcessShot.
+	chain := game.NewConsequenceChain()
+	chainCtx, err := chain.Run(r.gameState, r.gameState.CurrentShooterDeviceIDHash(), shotPayload.Result)
 	if err != nil {
-		slog.Warn("ProcessShot failed", "code", r.code, "error", err)
+		slog.Warn("ConsequenceChain failed", "code", r.code, "error", err)
 		r.sendErrorToPlayerLocked(deviceHash, "SHOT_FAILED", err.Error())
 		return
 	}
+
+	result := chainCtx.TurnResult
 
 	// Check game over.
 	if result.IsGameOver {
 		r.gameState.GamePhase = game.PhaseEnded
 	}
 
-	// Broadcast turn_complete.
-	r.broadcastTurnCompleteLocked(result)
+	// Broadcast enriched turn_complete.
+	r.broadcastTurnCompleteLocked(chainCtx)
 
 	// If game over, also broadcast game_ended.
 	if result.IsGameOver {
@@ -688,25 +692,49 @@ func (r *Room) handleUndoShotLocked(deviceHash string) {
 		return
 	}
 
-	// Broadcast corrected state as turn_complete.
+	// Broadcast corrected state as turn_complete with recalculated leaderboard.
 	shooter := r.gameState.CurrentShooterDeviceIDHash()
 	player := r.gameState.Players[shooter]
-	corrected := &game.TurnResult{
-		ShooterHash:     shooter,
-		Result:          "",
-		PointsAwarded:   0,
-		NewScore:        player.Score,
-		NewStreak:       player.Streak,
-		NextShooterHash: shooter, // same shooter (turn reverted)
-		CurrentRound:    r.gameState.CurrentRound,
-		IsGameOver:      false,
+	correctedCtx := &game.ChainContext{
+		ShooterHash:    shooter,
+		ShotResult:     "",
+		TurnResult: &game.TurnResult{
+			ShooterHash:     shooter,
+			Result:          "",
+			PointsAwarded:   0,
+			NewScore:        player.Score,
+			NewStreak:       player.Streak,
+			NextShooterHash: shooter, // same shooter (turn reverted)
+			CurrentRound:    r.gameState.CurrentRound,
+			IsGameOver:      false,
+		},
+		StreakLabel:     game.StreakLabel(player.Streak),
+		StreakMilestone: false,
+		Leaderboard:    r.gameState.CalculateLeaderboard(nil),
+		CascadeProfile: "routine",
 	}
-	r.broadcastTurnCompleteLocked(corrected)
+	r.broadcastTurnCompleteLocked(correctedCtx)
 }
 
-// broadcastTurnCompleteLocked broadcasts a game.turn_complete message.
+// broadcastTurnCompleteLocked broadcasts a game.turn_complete message with enriched chain data.
 // Must be called with r.mu held.
-func (r *Room) broadcastTurnCompleteLocked(result *game.TurnResult) {
+func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
+	result := chainCtx.TurnResult
+
+	// Convert game.LeaderboardEntry to protocol.LeaderboardEntry.
+	leaderboard := make([]protocol.LeaderboardEntry, len(chainCtx.Leaderboard))
+	for i, entry := range chainCtx.Leaderboard {
+		leaderboard[i] = protocol.LeaderboardEntry{
+			DeviceIDHash: entry.DeviceIDHash,
+			DisplayName:  entry.DisplayName,
+			Score:        entry.Score,
+			Streak:       entry.Streak,
+			StreakLabel:   entry.StreakLabel,
+			Rank:         entry.Rank,
+			RankChanged:  entry.RankChanged,
+		}
+	}
+
 	payload, err := json.Marshal(protocol.TurnCompletePayload{
 		ShooterHash:        result.ShooterHash,
 		Result:             result.Result,
@@ -716,6 +744,10 @@ func (r *Room) broadcastTurnCompleteLocked(result *game.TurnResult) {
 		CurrentShooterHash: result.NextShooterHash,
 		CurrentRound:       result.CurrentRound,
 		IsGameOver:         result.IsGameOver,
+		StreakLabel:         chainCtx.StreakLabel,
+		StreakMilestone:     chainCtx.StreakMilestone,
+		Leaderboard:        leaderboard,
+		CascadeProfile:     chainCtx.CascadeProfile,
 	})
 	if err != nil {
 		slog.Error("failed to marshal turn_complete", "code", r.code, "error", err)

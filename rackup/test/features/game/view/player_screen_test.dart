@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/widgets/player_name_tag.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/player_screen.dart';
 
 import '../../../helpers/helpers.dart';
@@ -27,17 +28,28 @@ void main() {
       ),
     ];
 
+    late LeaderboardBloc leaderboardBloc;
+
+    setUp(() {
+      leaderboardBloc = LeaderboardBloc();
+    });
+
+    tearDown(() {
+      leaderboardBloc.close();
+    });
+
     testWidgets(
         'renders all 4 regions with correct content, self-row highlighted',
         (tester) async {
       await tester.pumpApp(
-        const PlayerScreen(
+        PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
           players: testPlayers,
           myDeviceIdHash: 'hash-a',
           currentShooterDeviceIdHash: 'hash-a',
+          leaderboardBloc: leaderboardBloc,
         ),
       );
 
@@ -72,13 +84,14 @@ void main() {
     testWidgets('shows turn indicator text for current shooter',
         (tester) async {
       await tester.pumpApp(
-        const PlayerScreen(
+        PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
           players: testPlayers,
           myDeviceIdHash: 'hash-b',
           currentShooterDeviceIdHash: 'hash-a',
+          leaderboardBloc: leaderboardBloc,
         ),
       );
 
@@ -88,13 +101,14 @@ void main() {
 
     testWidgets('leaderboard sorts by score descending', (tester) async {
       await tester.pumpApp(
-        const PlayerScreen(
+        PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
           players: testPlayers,
           myDeviceIdHash: 'hash-b',
           currentShooterDeviceIdHash: 'hash-a',
+          leaderboardBloc: leaderboardBloc,
         ),
       );
 
@@ -109,13 +123,14 @@ void main() {
     testWidgets('shows streak indicator in My Status when streak > 0',
         (tester) async {
       await tester.pumpApp(
-        const PlayerScreen(
+        PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
           players: testPlayers,
           myDeviceIdHash: 'hash-a',
           currentShooterDeviceIdHash: 'hash-b',
+          leaderboardBloc: leaderboardBloc,
         ),
       );
 

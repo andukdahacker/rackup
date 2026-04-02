@@ -35,7 +35,9 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-23
-last_updated: 2026-04-01
+last_updated: 2026-04-02
+# Story 3-3 dev completed: 2026-04-02
+# Story 3-3 context created: 2026-04-02
 # Story 3-2 dev completed: 2026-04-01
 # Story 3-2 dev started: 2026-04-01
 # Story 3-2 context created: 2026-04-01
@@ -88,7 +90,7 @@ development_status:
   epic-3: in-progress
   3-1-referee-assignment-and-role-reveal: done
   3-2-turn-management-and-shot-confirmation: review
-  3-3-scoring-streaks-and-consequence-chain: backlog
+  3-3-scoring-streaks-and-consequence-chain: done
   3-4-live-leaderboard: backlog
   3-5-game-progression-and-triple-points: backlog
   3-6-sound-effects-and-screen-awake: backlog

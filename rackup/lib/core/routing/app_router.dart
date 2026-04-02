@@ -7,6 +7,7 @@ import 'package:rackup/core/services/room_api_service.dart';
 import 'package:rackup/core/websocket/game_message_listener.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/game_page.dart';
 import 'package:rackup/features/home/view/home_page.dart';
 import 'package:rackup/features/lobby/bloc/room_bloc.dart';
@@ -75,6 +76,7 @@ class _RoomShellState extends State<_RoomShell> {
   late final WebSocketCubit _wsCubit;
   late final RoomBloc _roomBloc;
   late final GameBloc _gameBloc;
+  late final LeaderboardBloc _leaderboardBloc;
   GameMessageListener? _gameMessageListener;
 
   @override
@@ -82,6 +84,7 @@ class _RoomShellState extends State<_RoomShell> {
     super.initState();
     _wsCubit = WebSocketCubit();
     _gameBloc = GameBloc();
+    _leaderboardBloc = LeaderboardBloc();
   }
 
   @override
@@ -98,6 +101,7 @@ class _RoomShellState extends State<_RoomShell> {
       _gameMessageListener = GameMessageListener(
         webSocketCubit: _wsCubit,
         gameBloc: _gameBloc,
+        leaderboardBloc: _leaderboardBloc,
       );
       _blocCreated = true;
     }
@@ -108,6 +112,7 @@ class _RoomShellState extends State<_RoomShell> {
   @override
   void dispose() {
     _gameMessageListener?.dispose();
+    _leaderboardBloc.close();
     _gameBloc.close();
     _roomBloc.close();
     _wsCubit.close();
@@ -121,6 +126,7 @@ class _RoomShellState extends State<_RoomShell> {
         BlocProvider<WebSocketCubit>.value(value: _wsCubit),
         BlocProvider<RoomBloc>.value(value: _roomBloc),
         BlocProvider<GameBloc>.value(value: _gameBloc),
+        BlocProvider<LeaderboardBloc>.value(value: _leaderboardBloc),
       ],
       child: widget.child,
     );

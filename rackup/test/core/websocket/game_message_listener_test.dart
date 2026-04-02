@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/websocket/game_message_listener.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
@@ -10,6 +9,8 @@ import 'package:rackup/core/websocket/web_socket_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
+import 'package:rackup/features/game/bloc/leaderboard_state.dart';
 
 class MockWebSocketCubit extends MockCubit<WebSocketState>
     implements WebSocketCubit {
@@ -32,13 +33,16 @@ void main() {
   group('GameMessageListener', () {
     late MockWebSocketCubit mockWsCubit;
     late GameBloc gameBloc;
+    late LeaderboardBloc leaderboardBloc;
 
     setUp(() {
       mockWsCubit = MockWebSocketCubit();
       gameBloc = GameBloc();
+      leaderboardBloc = LeaderboardBloc();
     });
 
     tearDown(() {
+      leaderboardBloc.close();
       gameBloc.close();
       mockWsCubit.disposeController();
     });
@@ -48,6 +52,7 @@ void main() {
       final listener = GameMessageListener(
         webSocketCubit: mockWsCubit,
         gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -105,6 +110,7 @@ void main() {
       final listener = GameMessageListener(
         webSocketCubit: mockWsCubit,
         gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -118,6 +124,29 @@ void main() {
           'currentShooterHash': 'hash-b',
           'currentRound': 1,
           'isGameOver': false,
+          'streakLabel': '',
+          'streakMilestone': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'score': 3,
+              'streak': 1,
+              'rank': 1,
+              'rankChanged': false,
+              'displayName': '',
+              'streakLabel': '',
+            },
+            {
+              'deviceIdHash': 'hash-b',
+              'score': 0,
+              'streak': 0,
+              'rank': 2,
+              'rankChanged': false,
+              'displayName': '',
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'routine',
         },
       ));
 
@@ -125,6 +154,66 @@ void main() {
 
       final state = gameBloc.state as GameActive;
       expect(state.currentShooterDeviceIdHash, 'hash-b');
+
+      // Verify leaderboard bloc was updated.
+      expect(leaderboardBloc.state, isA<LeaderboardActive>());
+      final lbState = leaderboardBloc.state as LeaderboardActive;
+      expect(lbState.entries.length, 2);
+      expect(lbState.entries.first.deviceIdHash, 'hash-a');
+
+      listener.dispose();
+    });
+
+    test(
+        'gameTurnComplete with streak milestone dispatches correct data',
+        () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a', 'hash-b'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'made',
+          'pointsAwarded': 4,
+          'newScore': 7,
+          'newStreak': 2,
+          'currentShooterHash': 'hash-b',
+          'currentRound': 1,
+          'isGameOver': false,
+          'streakLabel': 'warming_up',
+          'streakMilestone': true,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'score': 7,
+              'streak': 2,
+              'rank': 1,
+              'rankChanged': false,
+              'displayName': '',
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'streak_milestone',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      final lbState = leaderboardBloc.state as LeaderboardActive;
+      expect(lbState.entries.first.streak, 2);
 
       listener.dispose();
     });
@@ -134,6 +223,7 @@ void main() {
       final listener = GameMessageListener(
         webSocketCubit: mockWsCubit,
         gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
       );
 
       // Send malformed payload.

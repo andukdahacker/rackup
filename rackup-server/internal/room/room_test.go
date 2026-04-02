@@ -1594,3 +1594,126 @@ func TestConfirmShot_BroadcastsToAllPlayers(t *testing.T) {
 		}
 	}
 }
+
+// --- Integration tests for enriched turn_complete payload (Story 3.3) ---
+
+func TestConfirmShot_EnrichedPayloadHasLeaderboard(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	sendConfirmShot(t, r, refereeHash, "made")
+	msg := readMessage(t, serverConn1)
+
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	// Leaderboard should be populated (non-referee players only).
+	if len(payload.Leaderboard) == 0 {
+		t.Fatal("expected non-empty leaderboard in turn_complete")
+	}
+
+	// Verify entries have display names and ranks.
+	for _, entry := range payload.Leaderboard {
+		if entry.DisplayName == "" {
+			t.Errorf("leaderboard entry %s has empty DisplayName", entry.DeviceIDHash)
+		}
+		if entry.Rank == 0 {
+			t.Errorf("leaderboard entry %s has zero rank", entry.DeviceIDHash)
+		}
+	}
+
+	// Referee should NOT be in leaderboard.
+	for _, entry := range payload.Leaderboard {
+		if entry.DeviceIDHash == refereeHash {
+			t.Error("referee should be excluded from leaderboard")
+		}
+	}
+}
+
+func TestConfirmShot_EnrichedPayloadHasStreakFields(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// First shot: streak=1, no milestone, routine cascade.
+	sendConfirmShot(t, r, refereeHash, "made")
+	msg := readMessage(t, serverConn1)
+
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if payload.StreakLabel != "" {
+		t.Errorf("expected empty streak label for streak=1, got %q", payload.StreakLabel)
+	}
+	if payload.StreakMilestone {
+		t.Error("expected streakMilestone=false for streak=1")
+	}
+	if payload.CascadeProfile != "routine" {
+		t.Errorf("expected cascade profile 'routine', got %q", payload.CascadeProfile)
+	}
+}
+
+func TestConfirmShot_StreakMilestoneAtTwoConsecutive(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// Shot 1: streak=1.
+	sendConfirmShot(t, r, refereeHash, "made")
+	readMessage(t, serverConn1) // consume
+
+	// Other players' turns (miss).
+	for i := 0; i < 2; i++ {
+		sendConfirmShot(t, r, refereeHash, "missed")
+		readMessage(t, serverConn1) // consume
+	}
+
+	// Shot 2 for same player: streak=2, should be milestone.
+	sendConfirmShot(t, r, refereeHash, "made")
+	msg := readMessage(t, serverConn1)
+
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if payload.StreakLabel != "warming_up" {
+		t.Errorf("expected streak label 'warming_up', got %q", payload.StreakLabel)
+	}
+	if !payload.StreakMilestone {
+		t.Error("expected streakMilestone=true for streak=2")
+	}
+	if payload.CascadeProfile != "streak_milestone" {
+		t.Errorf("expected cascade profile 'streak_milestone', got %q", payload.CascadeProfile)
+	}
+}
+
+func TestConfirmShot_LeaderboardHasStreakLabels(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	sendConfirmShot(t, r, refereeHash, "made")
+	msg := readMessage(t, serverConn1)
+
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	// Verify leaderboard entries have streakLabel populated.
+	found := false
+	for _, entry := range payload.Leaderboard {
+		if entry.Score > 0 {
+			found = true
+			// streak=1, label should be empty.
+			if entry.StreakLabel != "" {
+				t.Errorf("expected empty streak label for streak=1, got %q", entry.StreakLabel)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected at least one entry with score > 0")
+	}
+}

@@ -55,6 +55,10 @@ class GameTurnCompleted extends GameEvent {
     required this.currentShooterHash,
     required this.currentRound,
     required this.isGameOver,
+    this.streakLabel = '',
+    this.streakMilestone = false,
+    this.leaderboard = const [],
+    this.cascadeProfile = 'routine',
   });
 
   /// The shooter's device ID hash.
@@ -81,6 +85,18 @@ class GameTurnCompleted extends GameEvent {
   /// Whether the game has ended.
   final bool isGameOver;
 
+  /// Streak label: "", "warming_up", "on_fire", "unstoppable".
+  final String streakLabel;
+
+  /// True when streak threshold was just crossed.
+  final bool streakMilestone;
+
+  /// Leaderboard snapshot from server.
+  final List<LeaderboardEntry> leaderboard;
+
+  /// Cascade timing profile.
+  final String cascadeProfile;
+
   @override
   List<Object?> get props => [
         shooterHash,
@@ -91,5 +107,34 @@ class GameTurnCompleted extends GameEvent {
         currentShooterHash,
         currentRound,
         isGameOver,
+        streakLabel,
+        streakMilestone,
+        leaderboard,
+        cascadeProfile,
       ];
+}
+
+/// A leaderboard entry from the server, used in events.
+class LeaderboardEntry extends Equatable {
+  const LeaderboardEntry({
+    required this.deviceIdHash,
+    required this.displayName,
+    required this.score,
+    required this.streak,
+    required this.streakLabel,
+    required this.rank,
+    this.rankChanged = false,
+  });
+
+  final String deviceIdHash;
+  final String displayName;
+  final int score;
+  final int streak;
+  final String streakLabel;
+  final int rank;
+  final bool rankChanged;
+
+  @override
+  List<Object?> get props =>
+      [deviceIdHash, displayName, score, streak, streakLabel, rank, rankChanged];
 }

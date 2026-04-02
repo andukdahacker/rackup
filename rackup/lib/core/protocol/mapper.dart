@@ -3,6 +3,7 @@
 import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/models/player.dart';
 import 'package:rackup/core/protocol/messages.dart';
+import 'package:rackup/features/game/bloc/game_event.dart';
 
 /// Maps a [LobbyPlayerPayload] wire type to a [Player] domain model.
 Player mapToPlayer(LobbyPlayerPayload payload) {
@@ -24,6 +25,19 @@ GamePlayer mapToGamePlayer(GamePlayerPayload payload) {
     score: payload.score,
     streak: payload.streak,
     isReferee: payload.isReferee,
+  );
+}
+
+/// Maps a [LeaderboardEntryPayload] wire type to a [LeaderboardEntry] domain model.
+LeaderboardEntry mapToLeaderboardEntry(LeaderboardEntryPayload payload) {
+  return LeaderboardEntry(
+    deviceIdHash: payload.deviceIdHash,
+    displayName: payload.displayName,
+    score: payload.score,
+    streak: payload.streak,
+    streakLabel: payload.streakLabel,
+    rank: payload.rank,
+    rankChanged: payload.rankChanged,
   );
 }
 
