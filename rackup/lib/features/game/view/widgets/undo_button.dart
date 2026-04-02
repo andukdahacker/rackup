@@ -27,71 +27,84 @@ class UndoButton extends StatefulWidget {
 }
 
 class _UndoButtonState extends State<UndoButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+    with TickerProviderStateMixin {
+  late final AnimationController _countdownController;
+  late final AnimationController _fadeController;
   bool _expired = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _countdownController = AnimationController(
       vsync: this,
       duration: widget.duration,
     )..forward();
-    _controller.addStatusListener((status) {
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      value: 1.0, // starts fully visible
+    );
+    _countdownController.addStatusListener((status) {
       if (status == AnimationStatus.completed && !_expired && mounted) {
         _expired = true;
-        widget.onExpired();
+        _fadeController.reverse().then((_) {
+          if (mounted) widget.onExpired();
+        });
       }
     });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _countdownController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([_countdownController, _fadeController]),
       builder: (context, child) {
         final remaining =
-            (widget.duration.inSeconds * (1 - _controller.value)).ceil();
-        return Opacity(
-          opacity: _expired ? 0.0 : 1.0,
-          child: Semantics(
-            button: true,
-            label: 'Undo last shot, $remaining seconds remaining',
-            liveRegion: true,
-            child: GestureDetector(
-              onTap: _expired ? null : widget.onUndo,
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Shrinking ring countdown.
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: CircularProgressIndicator(
-                        value: 1 - _controller.value,
-                        strokeWidth: 3,
-                        color: RackUpColors.textSecondary,
-                        backgroundColor:
-                            RackUpColors.textSecondary.withValues(alpha: 0.2),
+            (widget.duration.inSeconds * (1 - _countdownController.value))
+                .ceil();
+        return IgnorePointer(
+          ignoring: _expired,
+          child: Opacity(
+            opacity: _fadeController.value,
+            child: Semantics(
+              button: true,
+              label: 'Undo last shot, $remaining seconds remaining',
+              liveRegion: true,
+              child: GestureDetector(
+                onTap: _expired ? null : widget.onUndo,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Shrinking ring countdown.
+                      SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          value: 1 - _countdownController.value,
+                          strokeWidth: 3,
+                          color: RackUpColors.textSecondary,
+                          backgroundColor: RackUpColors.textSecondary
+                              .withValues(alpha: 0.2),
+                        ),
                       ),
-                    ),
-                    // Undo icon.
-                    const Icon(
-                      Icons.undo,
-                      color: RackUpColors.textSecondary,
-                      size: 24,
-                    ),
-                  ],
+                      // Undo icon.
+                      const Icon(
+                        Icons.undo,
+                        color: RackUpColors.textSecondary,
+                        size: 24,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

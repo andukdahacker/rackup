@@ -78,6 +78,10 @@ class _RefereeScreenState extends State<RefereeScreen> {
         payload: <String, dynamic>{},
       ),
     );
+    // Optimistic reset: if undo succeeds, server sends corrected turn_complete
+    // for the same shooter. If undo fails (UNDO_EXPIRED), the turn already
+    // advanced from the original shot — currentShooter prop reflects the next
+    // player, so showing MADE/MISSED buttons for them is correct.
     setState(() => _actionState = _ActionZoneState.idle);
   }
 

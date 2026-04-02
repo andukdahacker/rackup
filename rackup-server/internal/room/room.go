@@ -680,6 +680,12 @@ func (r *Room) handleConfirmShotLocked(deviceHash string, payload json.RawMessag
 
 // handleUndoShotLocked processes referee.undo_shot. Must be called with r.mu held (write lock).
 func (r *Room) handleUndoShotLocked(deviceHash string) {
+	// Block undo after game-ending shots — game_ended was already broadcast and cannot be retracted.
+	if r.gameState.GamePhase == game.PhaseEnded {
+		r.sendErrorToPlayerLocked(deviceHash, "UNDO_BLOCKED", "Cannot undo after game has ended")
+		return
+	}
+
 	// Validate within 5-second undo window.
 	if r.gameState.LastShotTime.IsZero() || time.Since(r.gameState.LastShotTime) > 5*time.Second {
 		r.sendErrorToPlayerLocked(deviceHash, "UNDO_EXPIRED", "Undo window has expired")
@@ -697,10 +703,10 @@ func (r *Room) handleUndoShotLocked(deviceHash string) {
 	player := r.gameState.Players[shooter]
 	correctedCtx := &game.ChainContext{
 		ShooterHash:    shooter,
-		ShotResult:     "",
+		ShotResult:     "undo",
 		TurnResult: &game.TurnResult{
 			ShooterHash:     shooter,
-			Result:          "",
+			Result:          "undo",
 			PointsAwarded:   0,
 			NewScore:        player.Score,
 			NewStreak:       player.Streak,

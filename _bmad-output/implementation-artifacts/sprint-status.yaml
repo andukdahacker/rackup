@@ -89,7 +89,7 @@ development_status:
   # Epic 3: Core Gameplay & Referee
   epic-3: in-progress
   3-1-referee-assignment-and-role-reveal: done
-  3-2-turn-management-and-shot-confirmation: review
+  3-2-turn-management-and-shot-confirmation: done
   3-3-scoring-streaks-and-consequence-chain: done
   3-4-live-leaderboard: backlog
   3-5-game-progression-and-triple-points: backlog
