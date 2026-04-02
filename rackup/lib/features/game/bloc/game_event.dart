@@ -43,3 +43,53 @@ class GameInitialized extends GameEvent {
         players,
       ];
 }
+
+/// A turn was completed — server broadcast (past tense).
+class GameTurnCompleted extends GameEvent {
+  const GameTurnCompleted({
+    required this.shooterHash,
+    required this.result,
+    required this.pointsAwarded,
+    required this.newScore,
+    required this.newStreak,
+    required this.currentShooterHash,
+    required this.currentRound,
+    required this.isGameOver,
+  });
+
+  /// The shooter's device ID hash.
+  final String shooterHash;
+
+  /// The shot result: "made" or "missed".
+  final String result;
+
+  /// Points awarded for this shot.
+  final int pointsAwarded;
+
+  /// The shooter's new total score.
+  final int newScore;
+
+  /// The shooter's new streak count.
+  final int newStreak;
+
+  /// The next shooter's device ID hash.
+  final String currentShooterHash;
+
+  /// The current round number.
+  final int currentRound;
+
+  /// Whether the game has ended.
+  final bool isGameOver;
+
+  @override
+  List<Object?> get props => [
+        shooterHash,
+        result,
+        pointsAwarded,
+        newScore,
+        newStreak,
+        currentShooterHash,
+        currentRound,
+        isGameOver,
+      ];
+}

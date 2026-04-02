@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/models/game_player.dart';
+import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/theme/rackup_typography.dart';
+import 'package:rackup/core/websocket/web_socket_cubit.dart';
+import 'package:rackup/core/websocket/web_socket_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
@@ -19,6 +24,22 @@ class MockGameBloc extends MockBloc<GameEvent, GameState>
 
 class MockDeviceIdentityService extends Mock
     implements DeviceIdentityService {}
+
+class MockWebSocketCubit extends MockCubit<WebSocketState>
+    implements WebSocketCubit {
+  final StreamController<Message> _messageController =
+      StreamController<Message>.broadcast();
+
+  @override
+  Stream<Message> get messages => _messageController.stream;
+
+  @override
+  void sendMessage(Message message) {}
+
+  void disposeController() {
+    _messageController.close();
+  }
+}
 
 const _testPlayers = [
   GamePlayer(
@@ -52,6 +73,7 @@ const _gameActiveState = GameActive(
 Widget _buildTestWidget({
   required GameBloc gameBloc,
   required DeviceIdentityService deviceIdentityService,
+  required WebSocketCubit webSocketCubit,
 }) {
   return MaterialApp(
     theme: ThemeData(
@@ -73,9 +95,15 @@ Widget _buildTestWidget({
         RepositoryProvider<DeviceIdentityService>.value(
           value: deviceIdentityService,
         ),
+        RepositoryProvider<WebSocketCubit>.value(
+          value: webSocketCubit,
+        ),
       ],
-      child: BlocProvider<GameBloc>.value(
-        value: gameBloc,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<GameBloc>.value(value: gameBloc),
+          BlocProvider<WebSocketCubit>.value(value: webSocketCubit),
+        ],
         child: Builder(
           builder: (context) {
             return RackUpGameTheme(
@@ -99,10 +127,16 @@ Widget _buildTestWidget({
 void main() {
   late MockGameBloc mockGameBloc;
   late MockDeviceIdentityService mockDeviceIdentity;
+  late MockWebSocketCubit mockWsCubit;
 
   setUp(() {
     mockGameBloc = MockGameBloc();
     mockDeviceIdentity = MockDeviceIdentityService();
+    mockWsCubit = MockWebSocketCubit();
+  });
+
+  tearDown(() {
+    mockWsCubit.disposeController();
   });
 
   group('GamePage', () {
@@ -115,6 +149,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         gameBloc: mockGameBloc,
         deviceIdentityService: mockDeviceIdentity,
+        webSocketCubit: mockWsCubit,
       ));
 
       // Overlay should be visible.
@@ -131,10 +166,11 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         gameBloc: mockGameBloc,
         deviceIdentityService: mockDeviceIdentity,
+        webSocketCubit: mockWsCubit,
       ));
 
       // Player screen should show.
-      expect(find.text('Game started!'), findsOneWidget);
+      expect(find.text("It's Alice's turn"), findsOneWidget);
       expect(find.text('No items'), findsOneWidget);
       // No overlay.
       expect(find.text("YOU'RE THE REFEREE NOW"), findsNothing);
@@ -148,6 +184,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         gameBloc: mockGameBloc,
         deviceIdentityService: mockDeviceIdentity,
+        webSocketCubit: mockWsCubit,
       ));
 
       // Verify PopScope prevents back navigation.

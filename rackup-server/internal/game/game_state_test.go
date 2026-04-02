@@ -2,6 +2,7 @@ package game
 
 import (
 	"testing"
+	"time"
 )
 
 func TestNewGameState_RefereeAssignment_ThreePlayers(t *testing.T) {
@@ -101,5 +102,381 @@ func TestIsReferee(t *testing.T) {
 	}
 	if gs.IsReferee("unknown-hash") {
 		t.Error("expected IsReferee to return false for unknown player")
+	}
+}
+
+// newTestGameState creates a 3-player game state for shot processing tests.
+// Turn order: hash-a (slot 1), hash-b (slot 2), hash-c (slot 3).
+// Referee: hash-b (first non-host).
+func newTestGameState() *GameState {
+	players := map[string]string{
+		"hash-a": "Alice",
+		"hash-b": "Bob",
+		"hash-c": "Charlie",
+	}
+	slots := map[string]int{
+		"hash-a": 1,
+		"hash-b": 2,
+		"hash-c": 3,
+	}
+	return NewGameState(players, slots, 3, "hash-a")
+}
+
+func TestProcessShot_Made_BaseScoring(t *testing.T) {
+	gs := newTestGameState()
+	shooter := gs.CurrentShooterDeviceIDHash() // hash-a
+
+	result, err := gs.ProcessShot(shooter, "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.PointsAwarded != 3 {
+		t.Errorf("expected 3 base points, got %d", result.PointsAwarded)
+	}
+	if result.NewScore != 3 {
+		t.Errorf("expected score=3, got %d", result.NewScore)
+	}
+	if result.NewStreak != 1 {
+		t.Errorf("expected streak=1, got %d", result.NewStreak)
+	}
+	if result.Result != "made" {
+		t.Errorf("expected result='made', got %q", result.Result)
+	}
+}
+
+func TestProcessShot_Missed(t *testing.T) {
+	gs := newTestGameState()
+	shooter := gs.CurrentShooterDeviceIDHash()
+
+	result, err := gs.ProcessShot(shooter, "missed")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.PointsAwarded != 0 {
+		t.Errorf("expected 0 points, got %d", result.PointsAwarded)
+	}
+	if result.NewStreak != 0 {
+		t.Errorf("expected streak=0, got %d", result.NewStreak)
+	}
+}
+
+func TestProcessShot_StreakBonuses(t *testing.T) {
+	gs := newTestGameState()
+
+	// We need to manually set up streaks by processing multiple shots.
+	// Each shot advances the turn, so we need to advance through all players.
+	tests := []struct {
+		shooter       string
+		expectedBonus int
+		expectedTotal int
+		streak        int
+	}{
+		// Set up hash-a with consecutive made shots by cycling through rounds.
+		// Round 1: hash-a makes (streak=1, bonus=0, points=3)
+		{"hash-a", 0, 3, 1},
+	}
+
+	for i, tc := range tests {
+		result, err := gs.ProcessShot(tc.shooter, "made")
+		if err != nil {
+			t.Fatalf("test %d: unexpected error: %v", i, err)
+		}
+		if result.NewStreak != tc.streak {
+			t.Errorf("test %d: expected streak=%d, got %d", i, tc.streak, result.NewStreak)
+		}
+		if result.PointsAwarded != 3+tc.expectedBonus {
+			t.Errorf("test %d: expected points=%d, got %d", i, 3+tc.expectedBonus, result.PointsAwarded)
+		}
+	}
+}
+
+func TestProcessShot_StreakBonusProgression(t *testing.T) {
+	// Test streak bonus: 0→1 (no bonus), 1→2 (+1), 2→3 (+2), 3→4 (+3)
+	// Use a single-player turn order to easily chain shots.
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        1,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	expected := []struct {
+		points int
+		streak int
+		score  int
+	}{
+		{3, 1, 3},   // streak 0→1, bonus=0
+		{4, 2, 7},   // streak 1→2, bonus=+1
+		{5, 3, 12},  // streak 2→3, bonus=+2
+		{6, 4, 18},  // streak 3→4, bonus=+3
+		{6, 5, 24},  // streak 4→5, bonus=+3 (capped)
+	}
+
+	for i, e := range expected {
+		result, err := gs.ProcessShot("shooter", "made")
+		if err != nil {
+			t.Fatalf("shot %d: error: %v", i, err)
+		}
+		if result.PointsAwarded != e.points {
+			t.Errorf("shot %d: expected %d points, got %d", i, e.points, result.PointsAwarded)
+		}
+		if result.NewStreak != e.streak {
+			t.Errorf("shot %d: expected streak=%d, got %d", i, e.streak, result.NewStreak)
+		}
+		if result.NewScore != e.score {
+			t.Errorf("shot %d: expected score=%d, got %d", i, e.score, result.NewScore)
+		}
+	}
+}
+
+func TestProcessShot_MissedResetsStreak(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        1,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 3},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	result, err := gs.ProcessShot("shooter", "missed")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.NewStreak != 0 {
+		t.Errorf("expected streak reset to 0, got %d", result.NewStreak)
+	}
+}
+
+func TestAdvanceTurn_WrapsAround(t *testing.T) {
+	gs := newTestGameState()
+	// Turn order: hash-a(0), hash-b(1), hash-c(2)
+	if gs.CurrentShooterIndex != 0 {
+		t.Fatalf("expected start at index 0")
+	}
+
+	gs.AdvanceTurn() // → 1
+	if gs.CurrentShooterIndex != 1 || gs.CurrentRound != 1 {
+		t.Errorf("after 1st advance: idx=%d round=%d", gs.CurrentShooterIndex, gs.CurrentRound)
+	}
+
+	gs.AdvanceTurn() // → 2
+	if gs.CurrentShooterIndex != 2 || gs.CurrentRound != 1 {
+		t.Errorf("after 2nd advance: idx=%d round=%d", gs.CurrentShooterIndex, gs.CurrentRound)
+	}
+
+	gs.AdvanceTurn() // → 0, round 1→2
+	if gs.CurrentShooterIndex != 0 || gs.CurrentRound != 2 {
+		t.Errorf("after wrap: idx=%d round=%d, expected idx=0 round=2", gs.CurrentShooterIndex, gs.CurrentRound)
+	}
+}
+
+func TestIsGameOver(t *testing.T) {
+	gs := &GameState{
+		RoundCount:   3,
+		CurrentRound: 3,
+		TurnOrder:    []string{"a", "b"},
+		GamePhase:    PhasePlaying,
+	}
+
+	if gs.IsGameOver() {
+		t.Error("should not be game over at round 3 of 3")
+	}
+
+	gs.CurrentRound = 4
+	if !gs.IsGameOver() {
+		t.Error("should be game over when currentRound > roundCount")
+	}
+}
+
+func TestUndoLastShot(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        1,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter", "other"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 2},
+			"other":   {DeviceIDHash: "other", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	// Process a shot (streak 2→3, bonus +2, total 5 points).
+	_, err := gs.ProcessShot("shooter", "made")
+	if err != nil {
+		t.Fatalf("ProcessShot error: %v", err)
+	}
+
+	// Verify state changed.
+	if gs.Players["shooter"].Score != 5 {
+		t.Fatalf("expected score=5 after shot, got %d", gs.Players["shooter"].Score)
+	}
+	if gs.Players["shooter"].Streak != 3 {
+		t.Fatalf("expected streak=3 after shot, got %d", gs.Players["shooter"].Streak)
+	}
+
+	// Undo.
+	if err := gs.UndoLastShot(); err != nil {
+		t.Fatalf("UndoLastShot error: %v", err)
+	}
+
+	if gs.Players["shooter"].Score != 0 {
+		t.Errorf("expected score=0 after undo, got %d", gs.Players["shooter"].Score)
+	}
+	if gs.Players["shooter"].Streak != 2 {
+		t.Errorf("expected streak=2 after undo, got %d", gs.Players["shooter"].Streak)
+	}
+	if gs.CurrentShooterDeviceIDHash() != "shooter" {
+		t.Errorf("expected current shooter reverted to 'shooter', got %q", gs.CurrentShooterDeviceIDHash())
+	}
+}
+
+func TestUndoLastShot_NoShotToUndo(t *testing.T) {
+	gs := newTestGameState()
+	err := gs.UndoLastShot()
+	if err == nil {
+		t.Error("expected error when no shot to undo")
+	}
+}
+
+func TestProcessShot_InvalidResult(t *testing.T) {
+	gs := newTestGameState()
+	shooter := gs.CurrentShooterDeviceIDHash()
+
+	_, err := gs.ProcessShot(shooter, "invalid")
+	if err == nil {
+		t.Error("expected error for invalid result")
+	}
+}
+
+func TestProcessShot_WrongShooter(t *testing.T) {
+	gs := newTestGameState()
+
+	_, err := gs.ProcessShot("wrong-hash", "made")
+	if err == nil {
+		t.Error("expected error for wrong shooter")
+	}
+}
+
+func TestProcessShot_GameNotPlaying(t *testing.T) {
+	gs := newTestGameState()
+	gs.GamePhase = PhaseEnded
+
+	_, err := gs.ProcessShot(gs.CurrentShooterDeviceIDHash(), "made")
+	if err == nil {
+		t.Error("expected error when game phase is ended")
+	}
+}
+
+func TestProcessShot_RoundIncrementOnWrap(t *testing.T) {
+	gs := newTestGameState() // 3 players, 3 rounds
+	// Process 3 shots to complete round 1.
+	for i := 0; i < 3; i++ {
+		shooter := gs.CurrentShooterDeviceIDHash()
+		_, err := gs.ProcessShot(shooter, "missed")
+		if err != nil {
+			t.Fatalf("shot %d error: %v", i, err)
+		}
+	}
+	if gs.CurrentRound != 2 {
+		t.Errorf("expected round 2 after all players shot, got %d", gs.CurrentRound)
+	}
+}
+
+func TestProcessShot_GameOverAfterFinalRound(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          1,
+		CurrentRound:        1,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"a"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"a": {DeviceIDHash: "a", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	result, err := gs.ProcessShot("a", "made")
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if !result.IsGameOver {
+		t.Error("expected game over after final round")
+	}
+}
+
+func TestUndoLastShot_RevertsGamePhaseAfterGameOver(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          1,
+		CurrentRound:        1,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"a"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"a": {DeviceIDHash: "a", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	result, err := gs.ProcessShot("a", "made")
+	if err != nil {
+		t.Fatalf("ProcessShot error: %v", err)
+	}
+	if !result.IsGameOver {
+		t.Fatal("expected game over")
+	}
+
+	// Simulate server setting phase to ended.
+	gs.GamePhase = PhaseEnded
+
+	// Undo should revert phase back to playing.
+	if err := gs.UndoLastShot(); err != nil {
+		t.Fatalf("UndoLastShot error: %v", err)
+	}
+	if gs.GamePhase != PhasePlaying {
+		t.Errorf("expected GamePhase=%q after undo, got %q", PhasePlaying, gs.GamePhase)
+	}
+	if gs.Players["a"].Score != 0 {
+		t.Errorf("expected score=0 after undo, got %d", gs.Players["a"].Score)
+	}
+
+	// Should be able to process another shot.
+	_, err = gs.ProcessShot("a", "missed")
+	if err != nil {
+		t.Errorf("expected ProcessShot to succeed after undo, got: %v", err)
+	}
+}
+
+func TestLastShotTime_SetOnProcessShot(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        1,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"s"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"s": {DeviceIDHash: "s", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	before := time.Now()
+	_, _ = gs.ProcessShot("s", "made")
+	after := time.Now()
+
+	if gs.LastShotTime.Before(before) || gs.LastShotTime.After(after) {
+		t.Error("LastShotTime not set correctly")
 	}
 }

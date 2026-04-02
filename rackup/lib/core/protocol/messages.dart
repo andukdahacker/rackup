@@ -313,6 +313,73 @@ class GameInitializedPayload {
   final List<GamePlayerPayload> players;
 }
 
+/// Wire payload for client→server referee.confirm_shot.
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (ConfirmShotPayload)
+class ConfirmShotPayload {
+  /// Creates a [ConfirmShotPayload].
+  const ConfirmShotPayload({required this.result});
+
+  /// The shot result: "made" or "missed".
+  final String result;
+
+  /// Converts to JSON map.
+  Map<String, dynamic> toJson() => {'result': result};
+}
+
+/// Wire payload for server→client game.turn_complete.
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (TurnCompletePayload)
+class TurnCompletePayload {
+  /// Creates a [TurnCompletePayload].
+  const TurnCompletePayload({
+    required this.shooterHash,
+    required this.result,
+    required this.pointsAwarded,
+    required this.newScore,
+    required this.newStreak,
+    required this.currentShooterHash,
+    required this.currentRound,
+    required this.isGameOver,
+  });
+
+  /// Creates from JSON map.
+  factory TurnCompletePayload.fromJson(Map<String, dynamic> json) {
+    return TurnCompletePayload(
+      shooterHash: json['shooterHash'] as String,
+      result: json['result'] as String,
+      pointsAwarded: json['pointsAwarded'] as int,
+      newScore: json['newScore'] as int,
+      newStreak: json['newStreak'] as int,
+      currentShooterHash: json['currentShooterHash'] as String,
+      currentRound: json['currentRound'] as int,
+      isGameOver: json['isGameOver'] as bool,
+    );
+  }
+
+  /// The shooter's device ID hash.
+  final String shooterHash;
+
+  /// The shot result: "made" or "missed".
+  final String result;
+
+  /// Points awarded for this shot.
+  final int pointsAwarded;
+
+  /// The shooter's new total score.
+  final int newScore;
+
+  /// The shooter's new streak count.
+  final int newStreak;
+
+  /// The next shooter's device ID hash.
+  final String currentShooterHash;
+
+  /// The current round number.
+  final int currentRound;
+
+  /// Whether the game has ended.
+  final bool isGameOver;
+}
+
 /// Error response payload.
 class ErrorResponse {
   /// Creates an [ErrorResponse].

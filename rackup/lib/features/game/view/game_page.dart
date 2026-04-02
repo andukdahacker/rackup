@@ -5,6 +5,7 @@ import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
+import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
 import 'package:rackup/features/game/view/player_screen.dart';
@@ -108,6 +109,7 @@ class _GamePageState extends State<GamePage> {
       totalRounds: state.roundCount,
       tier: state.tier,
       currentShooter: currentShooter,
+      webSocketCubit: context.read<WebSocketCubit>(),
     );
   }
 
@@ -118,6 +120,7 @@ class _GamePageState extends State<GamePage> {
       tier: state.tier,
       players: state.players,
       myDeviceIdHash: myDeviceIdHash,
+      currentShooterDeviceIdHash: state.currentShooterDeviceIdHash,
     );
   }
 }

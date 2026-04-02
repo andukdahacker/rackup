@@ -89,5 +89,65 @@ void main() {
 
       listener.dispose();
     });
+
+    test('gameTurnComplete message dispatches GameTurnCompleted event',
+        () async {
+      // First initialize the game.
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a', 'hash-b'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'made',
+          'pointsAwarded': 3,
+          'newScore': 3,
+          'newStreak': 1,
+          'currentShooterHash': 'hash-b',
+          'currentRound': 1,
+          'isGameOver': false,
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      final state = gameBloc.state as GameActive;
+      expect(state.currentShooterDeviceIdHash, 'hash-b');
+
+      listener.dispose();
+    });
+
+    test('malformed gameTurnComplete payload is dropped gracefully',
+        () async {
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+      );
+
+      // Send malformed payload.
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {'invalid': true},
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // State should still be initial (not crash).
+      expect(gameBloc.state, isA<GameInitial>());
+
+      listener.dispose();
+    });
   });
 }

@@ -39,6 +39,20 @@ class GameMessageListener {
             players: players,
           ));
 
+        case Actions.gameTurnComplete:
+          final payload =
+              TurnCompletePayload.fromJson(message.payload);
+          gameBloc.add(GameTurnCompleted(
+            shooterHash: payload.shooterHash,
+            result: payload.result,
+            pointsAwarded: payload.pointsAwarded,
+            newScore: payload.newScore,
+            newStreak: payload.newStreak,
+            currentShooterHash: payload.currentShooterHash,
+            currentRound: payload.currentRound,
+            isGameOver: payload.isGameOver,
+          ));
+
         default:
           break;
       }

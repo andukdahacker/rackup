@@ -66,6 +66,23 @@ type GameInitializedPayload struct {
 	Players                  []GamePlayerPayload  `json:"players"`
 }
 
+// ConfirmShotPayload is the client→server payload for referee.confirm_shot.
+type ConfirmShotPayload struct {
+	Result string `json:"result"` // "made" or "missed"
+}
+
+// TurnCompletePayload is the server→client payload for game.turn_complete.
+type TurnCompletePayload struct {
+	ShooterHash        string `json:"shooterHash"`
+	Result             string `json:"result"`
+	PointsAwarded      int    `json:"pointsAwarded"`
+	NewScore           int    `json:"newScore"`
+	NewStreak          int    `json:"newStreak"`
+	CurrentShooterHash string `json:"currentShooterHash"` // next shooter
+	CurrentRound       int    `json:"currentRound"`
+	IsGameOver         bool   `json:"isGameOver"`
+}
+
 // ErrorPayload is the payload for action "error".
 type ErrorPayload struct {
 	Code    string `json:"code"`

@@ -17,6 +17,7 @@ class PlayerScreen extends StatelessWidget {
     required this.tier,
     required this.players,
     required this.myDeviceIdHash,
+    required this.currentShooterDeviceIdHash,
     super.key,
   });
 
@@ -35,12 +36,28 @@ class PlayerScreen extends StatelessWidget {
   /// The current device's ID hash (for highlighting self row).
   final String myDeviceIdHash;
 
+  /// The current shooter's device ID hash (for turn indicator).
+  final String currentShooterDeviceIdHash;
+
   @override
   Widget build(BuildContext context) {
     GamePlayer? myPlayer;
     for (final p in players) {
       if (p.deviceIdHash == myDeviceIdHash) {
         myPlayer = p;
+        break;
+      }
+    }
+
+    // Sort players by score descending for leaderboard.
+    final sorted = List<GamePlayer>.of(players)
+      ..sort((a, b) => b.score.compareTo(a.score));
+
+    // Find current shooter's display name.
+    String? currentShooterName;
+    for (final p in players) {
+      if (p.deviceIdHash == currentShooterDeviceIdHash) {
+        currentShooterName = p.displayName;
         break;
       }
     }
@@ -62,14 +79,25 @@ class PlayerScreen extends StatelessWidget {
               child: ListView.builder(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: players.length,
+                itemCount: sorted.length,
                 itemBuilder: (context, index) {
-                  final player = players[index];
+                  final player = sorted[index];
                   final isSelf = player.deviceIdHash == myDeviceIdHash;
+                  final isShooter =
+                      player.deviceIdHash == currentShooterDeviceIdHash;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       children: [
+                        if (isShooter)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 8),
+                            child: Icon(
+                              Icons.sports_basketball,
+                              color: RackUpColors.streakGold,
+                              size: 16,
+                            ),
+                          ),
                         Expanded(
                           child: PlayerNameTag(
                             displayName: player.displayName,
@@ -101,7 +129,9 @@ class PlayerScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 alignment: Alignment.topLeft,
                 child: Text(
-                  'Game started!',
+                  currentShooterName != null
+                      ? "It's $currentShooterName's turn"
+                      : 'Game started!',
                   style: const TextStyle(
                     fontSize: 14,
                     color: RackUpColors.textSecondary,
@@ -117,11 +147,11 @@ class PlayerScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    if (myPlayer != null)
+                    if (myPlayer case final mp?)
                       Expanded(
                         child: PlayerNameTag(
-                          displayName: myPlayer!.displayName,
-                          slot: myPlayer!.slot,
+                          displayName: mp.displayName,
+                          slot: mp.slot,
                           size: PlayerNameTagSize.compact,
                         ),
                       ),
@@ -134,7 +164,18 @@ class PlayerScreen extends StatelessWidget {
                       textScaler:
                           ClampedTextScaler.of(context, TextRole.body),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 8),
+                    if (myPlayer case final mp? when mp.streak > 0)
+                      Text(
+                        '${mp.streak}x',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: RackUpColors.streakGold,
+                        ),
+                        textScaler:
+                            ClampedTextScaler.of(context, TextRole.body),
+                      ),
+                    const SizedBox(width: 8),
                     Text(
                       'No items',
                       style: const TextStyle(

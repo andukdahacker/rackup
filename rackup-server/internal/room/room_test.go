@@ -1361,3 +1361,236 @@ func TestGameInitialized_PayloadBroadcast(t *testing.T) {
 		}
 	}
 }
+
+// --- Story 3.2: Shot Confirmation Tests ---
+
+// setupStartedThreePlayerRoom creates a 3-player room with the game started.
+// Returns the room, cancel, server connections, and the referee's device hash.
+// Turn order: host-hash(slot1), player2(slot2), player3(slot3).
+// Referee: player2 (first non-host). Current shooter: host-hash.
+func setupStartedThreePlayerRoom(t *testing.T) (*Room, context.CancelFunc, *websocket.Conn, *websocket.Conn, *websocket.Conn, string) {
+	t.Helper()
+	r, cancel, serverConn1, serverConn2, serverConn3 := setupThreePlayerRoom(t)
+
+	sendStartGame(t, r, "host-hash", 10)
+
+	// Drain lobby.game_started and game.initialized for all 3 players.
+	readMessage(t, serverConn1) // lobby.game_started
+	readMessage(t, serverConn1) // game.initialized
+	readMessage(t, serverConn2) // lobby.game_started
+	readMessage(t, serverConn2) // game.initialized
+	readMessage(t, serverConn3) // lobby.game_started
+	readMessage(t, serverConn3) // game.initialized
+
+	refereeHash := r.gameState.RefereeDeviceIDHash // player2
+	return r, cancel, serverConn1, serverConn2, serverConn3, refereeHash
+}
+
+func sendConfirmShot(t *testing.T, r *Room, refereeHash, result string) {
+	t.Helper()
+	payload := fmt.Sprintf(`{"result":"%s"}`, result)
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionRefereeConfirmShot,
+		Payload: json.RawMessage(payload),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  refereeHash,
+		Payload: innerMsg,
+	})
+}
+
+func sendUndoShot(t *testing.T, r *Room, refereeHash string) {
+	t.Helper()
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionRefereeUndoShot,
+		Payload: json.RawMessage(`{}`),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  refereeHash,
+		Payload: innerMsg,
+	})
+}
+
+func TestConfirmShot_MadeBroadcastsTurnComplete(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	sendConfirmShot(t, r, refereeHash, "made")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionGameTurnComplete {
+		t.Fatalf("expected game.turn_complete, got %q", msg.Action)
+	}
+
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if payload.Result != "made" {
+		t.Errorf("expected result 'made', got %q", payload.Result)
+	}
+	if payload.PointsAwarded != 3 {
+		t.Errorf("expected 3 points, got %d", payload.PointsAwarded)
+	}
+	if payload.NewScore != 3 {
+		t.Errorf("expected newScore 3, got %d", payload.NewScore)
+	}
+	if payload.NewStreak != 1 {
+		t.Errorf("expected newStreak 1, got %d", payload.NewStreak)
+	}
+}
+
+func TestConfirmShot_MissedBroadcastsTurnComplete(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	sendConfirmShot(t, r, refereeHash, "missed")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionGameTurnComplete {
+		t.Fatalf("expected game.turn_complete, got %q", msg.Action)
+	}
+
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if payload.Result != "missed" {
+		t.Errorf("expected result 'missed', got %q", payload.Result)
+	}
+	if payload.PointsAwarded != 0 {
+		t.Errorf("expected 0 points, got %d", payload.PointsAwarded)
+	}
+	if payload.NewStreak != 0 {
+		t.Errorf("expected streak 0, got %d", payload.NewStreak)
+	}
+}
+
+func TestConfirmShot_NonRefereeRejected(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// Non-referee (host) tries to confirm shot.
+	sendConfirmShot(t, r, "host-hash", "made")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "NOT_REFEREE" {
+		t.Errorf("expected NOT_REFEREE, got %q", errPayload.Code)
+	}
+}
+
+func TestConfirmShot_TurnAdvancesToNextPlayer(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// First shooter is host-hash (slot 1). After shot, next should be player2 (slot 2)
+	// — but player2 is the referee, so the turn order includes everyone in slot order.
+	sendConfirmShot(t, r, refereeHash, "made")
+
+	msg := readMessage(t, serverConn1)
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	// ShooterHash should be the first player.
+	if payload.ShooterHash != "host-hash" {
+		t.Errorf("expected shooter 'host-hash', got %q", payload.ShooterHash)
+	}
+	// CurrentShooterHash should be the next in turn order.
+	if payload.CurrentShooterHash == "host-hash" {
+		t.Error("current shooter should have advanced from host-hash")
+	}
+}
+
+func TestUndoShot_WithinWindow(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// Confirm shot.
+	sendConfirmShot(t, r, refereeHash, "made")
+	readMessage(t, serverConn1) // turn_complete
+
+	// Immediately undo (within 5s window).
+	sendUndoShot(t, r, refereeHash)
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionGameTurnComplete {
+		t.Fatalf("expected game.turn_complete (undo correction), got %q", msg.Action)
+	}
+
+	var payload protocol.TurnCompletePayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	// After undo, the score should be reverted.
+	if payload.NewScore != 0 {
+		t.Errorf("expected score reverted to 0, got %d", payload.NewScore)
+	}
+	if payload.NewStreak != 0 {
+		t.Errorf("expected streak reverted to 0, got %d", payload.NewStreak)
+	}
+	// Current shooter should be back to the original.
+	if payload.CurrentShooterHash != "host-hash" {
+		t.Errorf("expected shooter reverted to host-hash, got %q", payload.CurrentShooterHash)
+	}
+}
+
+func TestUndoShot_AfterWindowExpired(t *testing.T) {
+	r, cancel, _, serverConn2, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// Confirm shot.
+	sendConfirmShot(t, r, refereeHash, "made")
+	readMessage(t, serverConn2) // turn_complete (broadcast to referee too)
+
+	// Manually set LastShotTime to 6 seconds ago to simulate expired window.
+	r.mu.Lock()
+	r.gameState.LastShotTime = time.Now().Add(-6 * time.Second)
+	r.mu.Unlock()
+
+	sendUndoShot(t, r, refereeHash)
+
+	// Error goes to the referee (player2 = serverConn2).
+	msg := readMessage(t, serverConn2)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error action for expired undo, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if errPayload.Code != "UNDO_EXPIRED" {
+		t.Errorf("expected UNDO_EXPIRED, got %q", errPayload.Code)
+	}
+}
+
+func TestConfirmShot_BroadcastsToAllPlayers(t *testing.T) {
+	r, cancel, serverConn1, serverConn2, serverConn3, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	sendConfirmShot(t, r, refereeHash, "made")
+
+	// All 3 players should receive the turn_complete broadcast.
+	msg1 := readMessage(t, serverConn1)
+	msg2 := readMessage(t, serverConn2)
+	msg3 := readMessage(t, serverConn3)
+
+	for i, m := range []protocol.Message{msg1, msg2, msg3} {
+		if m.Action != protocol.ActionGameTurnComplete {
+			t.Errorf("player %d: expected game.turn_complete, got %q", i+1, m.Action)
+		}
+	}
+}

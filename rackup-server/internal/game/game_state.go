@@ -1,6 +1,10 @@
 package game
 
-import "sort"
+import (
+	"errors"
+	"sort"
+	"time"
+)
 
 // GamePhase represents the current phase of a game.
 const (
@@ -18,6 +22,18 @@ type GamePlayer struct {
 	IsReferee    bool
 }
 
+// TurnResult holds the outcome of a ProcessShot call.
+type TurnResult struct {
+	ShooterHash        string
+	Result             string
+	PointsAwarded      int
+	NewScore           int
+	NewStreak          int
+	NextShooterHash    string
+	CurrentRound       int
+	IsGameOver         bool
+}
+
 // GameState holds the full state of an active game session.
 type GameState struct {
 	RoundCount          int
@@ -27,6 +43,15 @@ type GameState struct {
 	CurrentShooterIndex int
 	Players             map[string]*GamePlayer
 	GamePhase           string
+
+	// Undo tracking.
+	LastShotResult      string    // "made" or "missed"; empty if no shot yet
+	LastShotTime        time.Time // when the last shot was processed
+	lastShooterHash     string    // who took the last shot
+	lastScoreDelta      int       // points awarded on last shot (for undo)
+	lastStreakBefore     int       // streak before last shot (for undo)
+	lastShooterIdxBefore int      // currentShooterIndex before AdvanceTurn
+	lastRoundBefore      int      // currentRound before AdvanceTurn
 }
 
 // NewGameState creates a GameState from the current room players.
@@ -102,4 +127,128 @@ func (gs *GameState) CurrentShooterDeviceIDHash() string {
 		return ""
 	}
 	return gs.TurnOrder[gs.CurrentShooterIndex]
+}
+
+// streakBonus returns the bonus points for the given streak count.
+// Streak 0-1 = 0, 2 = +1, 3 = +2, 4+ = +3.
+func streakBonus(streak int) int {
+	switch {
+	case streak >= 4:
+		return 3
+	case streak == 3:
+		return 2
+	case streak == 2:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// ProcessShot processes a shot result for the current shooter.
+// Returns a TurnResult with scoring details.
+func (gs *GameState) ProcessShot(shooterHash string, result string) (*TurnResult, error) {
+	if gs.GamePhase != PhasePlaying {
+		return nil, errors.New("game is not in playing phase")
+	}
+	if shooterHash != gs.CurrentShooterDeviceIDHash() {
+		return nil, errors.New("not the current shooter")
+	}
+	if result != "made" && result != "missed" {
+		return nil, errors.New("invalid result: must be 'made' or 'missed'")
+	}
+
+	player := gs.Players[shooterHash]
+	if player == nil {
+		return nil, errors.New("player not found")
+	}
+
+	// Save undo state.
+	gs.lastShooterHash = shooterHash
+	gs.lastStreakBefore = player.Streak
+	gs.lastShooterIdxBefore = gs.CurrentShooterIndex
+	gs.lastRoundBefore = gs.CurrentRound
+
+	// Calculate score.
+	var points int
+	if result == "made" {
+		player.Streak++
+		points = 3 + streakBonus(player.Streak)
+		player.Score += points
+	} else {
+		player.Streak = 0
+		points = 0
+	}
+
+	gs.lastScoreDelta = points
+	gs.LastShotResult = result
+	gs.LastShotTime = time.Now()
+
+	// Advance turn.
+	gs.AdvanceTurn()
+
+	return &TurnResult{
+		ShooterHash:     shooterHash,
+		Result:          result,
+		PointsAwarded:   points,
+		NewScore:        player.Score,
+		NewStreak:       player.Streak,
+		NextShooterHash: gs.CurrentShooterDeviceIDHash(),
+		CurrentRound:    gs.CurrentRound,
+		IsGameOver:      gs.IsGameOver(),
+	}, nil
+}
+
+// AdvanceTurn moves to the next shooter in turn order.
+// Increments currentRound when wrapping back to the first player.
+func (gs *GameState) AdvanceTurn() {
+	if len(gs.TurnOrder) == 0 {
+		return
+	}
+	gs.CurrentShooterIndex++
+	if gs.CurrentShooterIndex >= len(gs.TurnOrder) {
+		gs.CurrentShooterIndex = 0
+		gs.CurrentRound++
+	}
+}
+
+// UndoLastShot reverts the last shot's score and streak changes
+// and resets the shooter index to the previous position.
+func (gs *GameState) UndoLastShot() error {
+	if gs.lastShooterHash == "" {
+		return errors.New("no shot to undo")
+	}
+
+	player := gs.Players[gs.lastShooterHash]
+	if player == nil {
+		return errors.New("player not found for undo")
+	}
+
+	// Revert score and streak.
+	player.Score -= gs.lastScoreDelta
+	player.Streak = gs.lastStreakBefore
+
+	// Revert turn advancement.
+	gs.CurrentShooterIndex = gs.lastShooterIdxBefore
+	gs.CurrentRound = gs.lastRoundBefore
+
+	// Revert game phase if the undone shot ended the game.
+	if gs.GamePhase == PhaseEnded {
+		gs.GamePhase = PhasePlaying
+	}
+
+	// Clear undo state.
+	gs.LastShotResult = ""
+	gs.LastShotTime = time.Time{}
+	gs.lastShooterHash = ""
+	gs.lastScoreDelta = 0
+	gs.lastStreakBefore = 0
+	gs.lastShooterIdxBefore = 0
+	gs.lastRoundBefore = 0
+
+	return nil
+}
+
+// IsGameOver returns true when currentRound exceeds roundCount.
+func (gs *GameState) IsGameOver() bool {
+	return gs.CurrentRound > gs.RoundCount
 }

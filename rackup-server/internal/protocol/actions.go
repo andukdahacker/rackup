@@ -11,5 +11,7 @@ const (
 	ActionLobbyGameStarted         = "lobby.game_started"
 	ActionGameInitialized          = "game.initialized"
 	ActionRefereeConfirmShot       = "referee.confirm_shot"
+	ActionRefereeUndoShot          = "referee.undo_shot"
+	ActionGameEnded                = "game.game_ended"
 	ActionError                    = "error"
 )

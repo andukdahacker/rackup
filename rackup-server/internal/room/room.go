@@ -462,7 +462,7 @@ func (r *Room) handleClientMessage(deviceHash string, raw json.RawMessage) {
 
 	default:
 		if strings.HasPrefix(msg.Action, "game.") || strings.HasPrefix(msg.Action, "referee.") {
-			r.handleGameAction(deviceHash, msg.Action)
+			r.handleGameAction(deviceHash, msg.Action, msg.Payload)
 			return
 		}
 		slog.Debug("unhandled client action", "code", r.code, "action", msg.Action)
@@ -593,10 +593,39 @@ func (r *Room) handleStartGame(deviceHash string, raw json.RawMessage) {
 	r.mu.Unlock()
 }
 
-// handleGameAction validates referee authority for game/referee-namespaced actions.
-// Note: gs is read under lock then used after unlock. This is safe because GameState
-// is immutable after construction — fields are never mutated, only replaced atomically.
-func (r *Room) handleGameAction(deviceHash, action string) {
+// handleGameAction routes game/referee-namespaced actions.
+// Referee actions (confirm_shot, undo_shot) acquire a write lock because they mutate GameState.
+func (r *Room) handleGameAction(deviceHash, action string, payload json.RawMessage) {
+	// Referee-namespaced actions need write lock for mutations.
+	if strings.HasPrefix(action, "referee.") {
+		r.mu.Lock()
+
+		if r.gameState == nil {
+			r.mu.Unlock()
+			r.sendErrorToPlayer(deviceHash, "GAME_NOT_STARTED", "Game has not started")
+			return
+		}
+
+		if !r.gameState.IsReferee(deviceHash) {
+			r.mu.Unlock()
+			r.sendErrorToPlayer(deviceHash, "NOT_REFEREE", "Only the referee can perform this action")
+			return
+		}
+
+		switch action {
+		case protocol.ActionRefereeConfirmShot:
+			r.handleConfirmShotLocked(deviceHash, payload)
+		case protocol.ActionRefereeUndoShot:
+			r.handleUndoShotLocked(deviceHash)
+		default:
+			slog.Debug("unhandled referee action", "code", r.code, "action", action)
+		}
+
+		r.mu.Unlock()
+		return
+	}
+
+	// Non-referee game actions (read-only).
 	r.mu.RLock()
 	gs := r.gameState
 	r.mu.RUnlock()
@@ -606,15 +635,120 @@ func (r *Room) handleGameAction(deviceHash, action string) {
 		return
 	}
 
-	// Referee-namespaced actions require referee authority.
-	if strings.HasPrefix(action, "referee.") {
-		if !gs.IsReferee(deviceHash) {
-			r.sendErrorToPlayer(deviceHash, "NOT_REFEREE", "Only the referee can perform this action")
-			return
-		}
+	slog.Debug("game action received", "code", r.code, "action", action, "device", deviceHash)
+}
+
+// handleConfirmShotLocked processes referee.confirm_shot. Must be called with r.mu held (write lock).
+func (r *Room) handleConfirmShotLocked(deviceHash string, payload json.RawMessage) {
+	var shotPayload protocol.ConfirmShotPayload
+	if err := json.Unmarshal(payload, &shotPayload); err != nil {
+		slog.Warn("failed to parse confirm_shot payload", "code", r.code, "error", err)
+		r.sendErrorToPlayerLocked(deviceHash, "INVALID_PAYLOAD", "Invalid confirm_shot payload")
+		return
 	}
 
-	slog.Debug("game action received", "code", r.code, "action", action, "device", deviceHash)
+	result, err := r.gameState.ProcessShot(r.gameState.CurrentShooterDeviceIDHash(), shotPayload.Result)
+	if err != nil {
+		slog.Warn("ProcessShot failed", "code", r.code, "error", err)
+		r.sendErrorToPlayerLocked(deviceHash, "SHOT_FAILED", err.Error())
+		return
+	}
+
+	// Check game over.
+	if result.IsGameOver {
+		r.gameState.GamePhase = game.PhaseEnded
+	}
+
+	// Broadcast turn_complete.
+	r.broadcastTurnCompleteLocked(result)
+
+	// If game over, also broadcast game_ended.
+	if result.IsGameOver {
+		endPayload, err := json.Marshal(map[string]bool{"gameOver": true})
+		if err == nil {
+			r.broadcastLocked(protocol.Message{
+				Action:  protocol.ActionGameEnded,
+				Payload: endPayload,
+			})
+		}
+	}
+}
+
+// handleUndoShotLocked processes referee.undo_shot. Must be called with r.mu held (write lock).
+func (r *Room) handleUndoShotLocked(deviceHash string) {
+	// Validate within 5-second undo window.
+	if r.gameState.LastShotTime.IsZero() || time.Since(r.gameState.LastShotTime) > 5*time.Second {
+		r.sendErrorToPlayerLocked(deviceHash, "UNDO_EXPIRED", "Undo window has expired")
+		return
+	}
+
+	if err := r.gameState.UndoLastShot(); err != nil {
+		slog.Warn("UndoLastShot failed", "code", r.code, "error", err)
+		r.sendErrorToPlayerLocked(deviceHash, "UNDO_FAILED", err.Error())
+		return
+	}
+
+	// Broadcast corrected state as turn_complete.
+	shooter := r.gameState.CurrentShooterDeviceIDHash()
+	player := r.gameState.Players[shooter]
+	corrected := &game.TurnResult{
+		ShooterHash:     shooter,
+		Result:          "",
+		PointsAwarded:   0,
+		NewScore:        player.Score,
+		NewStreak:       player.Streak,
+		NextShooterHash: shooter, // same shooter (turn reverted)
+		CurrentRound:    r.gameState.CurrentRound,
+		IsGameOver:      false,
+	}
+	r.broadcastTurnCompleteLocked(corrected)
+}
+
+// broadcastTurnCompleteLocked broadcasts a game.turn_complete message.
+// Must be called with r.mu held.
+func (r *Room) broadcastTurnCompleteLocked(result *game.TurnResult) {
+	payload, err := json.Marshal(protocol.TurnCompletePayload{
+		ShooterHash:        result.ShooterHash,
+		Result:             result.Result,
+		PointsAwarded:      result.PointsAwarded,
+		NewScore:           result.NewScore,
+		NewStreak:          result.NewStreak,
+		CurrentShooterHash: result.NextShooterHash,
+		CurrentRound:       result.CurrentRound,
+		IsGameOver:         result.IsGameOver,
+	})
+	if err != nil {
+		slog.Error("failed to marshal turn_complete", "code", r.code, "error", err)
+		return
+	}
+	r.broadcastLocked(protocol.Message{
+		Action:  protocol.ActionGameTurnComplete,
+		Payload: payload,
+	})
+}
+
+// sendErrorToPlayerLocked sends an error message to a specific player.
+// Must be called with r.mu held.
+func (r *Room) sendErrorToPlayerLocked(deviceHash, code, message string) {
+	payload, err := json.Marshal(protocol.ErrorPayload{
+		Code:    code,
+		Message: message,
+	})
+	if err != nil {
+		return
+	}
+	data, err := json.Marshal(protocol.Message{
+		Action:  protocol.ActionError,
+		Payload: payload,
+	})
+	if err != nil {
+		return
+	}
+	if conn, ok := r.players[deviceHash]; ok {
+		if writeErr := conn.WriteMessage(data); writeErr != nil {
+			slog.Warn("failed to send error to player", "code", r.code, "device", deviceHash, "error", writeErr)
+		}
+	}
 }
 
 // sendErrorToPlayer sends an error message to a specific player.

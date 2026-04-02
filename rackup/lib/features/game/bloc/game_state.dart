@@ -48,6 +48,28 @@ class GameActive extends GameState {
   /// Current escalation tier.
   final EscalationTier tier;
 
+  /// Creates a copy with the given fields replaced.
+  GameActive copyWith({
+    int? roundCount,
+    int? currentRound,
+    String? refereeDeviceIdHash,
+    String? currentShooterDeviceIdHash,
+    List<String>? turnOrder,
+    List<GamePlayer>? players,
+    EscalationTier? tier,
+  }) {
+    return GameActive(
+      roundCount: roundCount ?? this.roundCount,
+      currentRound: currentRound ?? this.currentRound,
+      refereeDeviceIdHash: refereeDeviceIdHash ?? this.refereeDeviceIdHash,
+      currentShooterDeviceIdHash:
+          currentShooterDeviceIdHash ?? this.currentShooterDeviceIdHash,
+      turnOrder: turnOrder ?? this.turnOrder,
+      players: players ?? this.players,
+      tier: tier ?? this.tier,
+    );
+  }
+
   @override
   List<Object?> get props => [
         roundCount,

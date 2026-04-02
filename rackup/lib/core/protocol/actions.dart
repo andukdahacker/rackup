@@ -32,6 +32,12 @@ abstract final class Actions {
   /// Referee confirms a shot result (client→server, referee-only).
   static const String refereeConfirmShot = 'referee.confirm_shot';
 
+  /// Referee undoes the last shot (client→server, referee-only).
+  static const String refereeUndoShot = 'referee.undo_shot';
+
+  /// Game has ended (server→client).
+  static const String gameEnded = 'game.game_ended';
+
   /// An error occurred.
   static const String error = 'error';
 }

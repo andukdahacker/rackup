@@ -27,7 +27,6 @@ func newWSPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
 		// Block until test ends.
 		<-r.Context().Done()
 	}))
-	t.Cleanup(server.Close)
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	clientConn, _, err := websocket.Dial(context.Background(), wsURL, nil)
@@ -41,10 +40,10 @@ func newWSPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
 		t.Fatal("timed out waiting for server connection")
 	}
 
-	t.Cleanup(func() {
-		clientConn.Close(websocket.StatusNormalClosure, "")
-		serverConn.Close(websocket.StatusNormalClosure, "")
-	})
+	// server.Close() force-closes all TCP connections, which is sufficient.
+	// Avoid explicit websocket.Close() calls — they trigger a 5-second
+	// close handshake timeout per connection.
+	t.Cleanup(server.Close)
 
 	return clientConn, serverConn
 }

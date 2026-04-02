@@ -63,9 +63,156 @@ void main() {
       verify: (bloc) {
         final state = bloc.state;
         expect(state, isA<GameActive>());
-        // Round 1 of 10: (1-1)/10 = 0% → mild tier (game always starts at mild)
         expect((state as GameActive).tier, EscalationTier.mild);
       },
+    );
+
+    blocTest<GameBloc, GameState>(
+      'GameTurnCompleted updates player score, streak, and current shooter',
+      build: GameBloc.new,
+      seed: () => GameActive(
+        roundCount: 10,
+        currentRound: 1,
+        refereeDeviceIdHash: 'hash-b',
+        currentShooterDeviceIdHash: 'hash-a',
+        turnOrder: const ['hash-a', 'hash-b'],
+        players: testPlayers,
+        tier: EscalationTier.mild,
+      ),
+      act: (bloc) => bloc.add(const GameTurnCompleted(
+        shooterHash: 'hash-a',
+        result: 'made',
+        pointsAwarded: 3,
+        newScore: 3,
+        newStreak: 1,
+        currentShooterHash: 'hash-b',
+        currentRound: 1,
+        isGameOver: false,
+      )),
+      expect: () => [
+        GameActive(
+          roundCount: 10,
+          currentRound: 1,
+          refereeDeviceIdHash: 'hash-b',
+          currentShooterDeviceIdHash: 'hash-b',
+          turnOrder: const ['hash-a', 'hash-b'],
+          players: [
+            const GamePlayer(
+              deviceIdHash: 'hash-a',
+              displayName: 'Alice',
+              slot: 1,
+              score: 3,
+              streak: 1,
+              isReferee: false,
+            ),
+            const GamePlayer(
+              deviceIdHash: 'hash-b',
+              displayName: 'Bob',
+              slot: 2,
+              score: 0,
+              streak: 0,
+              isReferee: true,
+            ),
+          ],
+          tier: EscalationTier.mild,
+        ),
+      ],
+    );
+
+    blocTest<GameBloc, GameState>(
+      'GameTurnCompleted recalculates tier on round change',
+      build: GameBloc.new,
+      seed: () => GameActive(
+        roundCount: 10,
+        currentRound: 1,
+        refereeDeviceIdHash: 'hash-b',
+        currentShooterDeviceIdHash: 'hash-a',
+        turnOrder: const ['hash-a', 'hash-b'],
+        players: testPlayers,
+        tier: EscalationTier.mild,
+      ),
+      act: (bloc) => bloc.add(const GameTurnCompleted(
+        shooterHash: 'hash-a',
+        result: 'made',
+        pointsAwarded: 3,
+        newScore: 3,
+        newStreak: 1,
+        currentShooterHash: 'hash-a',
+        currentRound: 5,
+        isGameOver: false,
+      )),
+      verify: (bloc) {
+        final state = bloc.state as GameActive;
+        // Round 5 of 10: (5-1)/10 = 40% → medium tier
+        expect(state.tier, EscalationTier.medium);
+        expect(state.currentRound, 5);
+      },
+    );
+
+    blocTest<GameBloc, GameState>(
+      'GameTurnCompleted with undo reverts score and shooter',
+      build: GameBloc.new,
+      seed: () => GameActive(
+        roundCount: 10,
+        currentRound: 1,
+        refereeDeviceIdHash: 'hash-b',
+        currentShooterDeviceIdHash: 'hash-b',
+        turnOrder: const ['hash-a', 'hash-b'],
+        players: [
+          const GamePlayer(
+            deviceIdHash: 'hash-a',
+            displayName: 'Alice',
+            slot: 1,
+            score: 3,
+            streak: 1,
+            isReferee: false,
+          ),
+          const GamePlayer(
+            deviceIdHash: 'hash-b',
+            displayName: 'Bob',
+            slot: 2,
+            score: 0,
+            streak: 0,
+            isReferee: true,
+          ),
+        ],
+        tier: EscalationTier.mild,
+      ),
+      act: (bloc) => bloc.add(const GameTurnCompleted(
+        shooterHash: 'hash-a',
+        result: '',
+        pointsAwarded: 0,
+        newScore: 0,
+        newStreak: 0,
+        currentShooterHash: 'hash-a',
+        currentRound: 1,
+        isGameOver: false,
+      )),
+      verify: (bloc) {
+        final state = bloc.state as GameActive;
+        final alice = state.players.firstWhere(
+          (p) => p.deviceIdHash == 'hash-a',
+        );
+        expect(alice.score, 0);
+        expect(alice.streak, 0);
+        expect(state.currentShooterDeviceIdHash, 'hash-a');
+      },
+    );
+
+    blocTest<GameBloc, GameState>(
+      'GameTurnCompleted ignored when not in GameActive state',
+      build: GameBloc.new,
+      act: (bloc) => bloc.add(const GameTurnCompleted(
+        shooterHash: 'hash-a',
+        result: 'made',
+        pointsAwarded: 3,
+        newScore: 3,
+        newStreak: 1,
+        currentShooterHash: 'hash-b',
+        currentRound: 1,
+        isGameOver: false,
+      )),
+      expect: () => <GameState>[],
     );
   });
 }

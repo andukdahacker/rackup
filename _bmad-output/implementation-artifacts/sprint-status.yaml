@@ -36,6 +36,9 @@
 
 generated: 2026-03-23
 last_updated: 2026-04-01
+# Story 3-2 dev completed: 2026-04-01
+# Story 3-2 dev started: 2026-04-01
+# Story 3-2 context created: 2026-04-01
 # Story 3-1 dev completed: 2026-04-01
 # Story 3-1 context created: 2026-04-01
 # Story 2-3 dev completed: 2026-04-01
@@ -84,7 +87,7 @@ development_status:
   # Epic 3: Core Gameplay & Referee
   epic-3: in-progress
   3-1-referee-assignment-and-role-reveal: done
-  3-2-turn-management-and-shot-confirmation: backlog
+  3-2-turn-management-and-shot-confirmation: review
   3-3-scoring-streaks-and-consequence-chain: backlog
   3-4-live-leaderboard: backlog
   3-5-game-progression-and-triple-points: backlog
