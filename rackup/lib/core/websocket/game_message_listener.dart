@@ -66,6 +66,7 @@ class GameMessageListener {
             streakMilestone: payload.streakMilestone,
             leaderboard: leaderboardEntries,
             cascadeProfile: payload.cascadeProfile,
+            isTriplePoints: payload.isTriplePoints,
           ));
 
           // Dispatch leaderboard update to LeaderboardBloc.

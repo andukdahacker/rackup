@@ -35,7 +35,11 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-23
-last_updated: 2026-04-02
+last_updated: 2026-04-03
+# Story 3-5 marked done: 2026-04-03
+# Story 3-5 dev completed: 2026-04-02
+# Story 3-5 dev started: 2026-04-02
+# Story 3-5 context created: 2026-04-02
 # Story 3-4 marked done: 2026-04-02
 # Story 3-4 dev completed: 2026-04-02
 # Story 3-4 context created: 2026-04-02
@@ -95,7 +99,7 @@ development_status:
   3-2-turn-management-and-shot-confirmation: done
   3-3-scoring-streaks-and-consequence-chain: done
   3-4-live-leaderboard: done
-  3-5-game-progression-and-triple-points: backlog
+  3-5-game-progression-and-triple-points: done
   3-6-sound-effects-and-screen-awake: backlog
   3-7-event-feed-and-game-end: backlog
   3-8-record-this-moments: backlog

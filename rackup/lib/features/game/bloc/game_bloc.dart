@@ -26,6 +26,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       turnOrder: event.turnOrder,
       players: event.players,
       tier: tier,
+      // P7: Set correctly at init so games with <=3 rounds don't cause
+      // a spurious false→true transition on first turn_complete.
+      isTriplePoints: initialRound > event.roundCount - 3,
     ));
   }
 
@@ -54,6 +57,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       currentRound: event.currentRound,
       players: updatedPlayers,
       tier: tier,
+      // Don't activate triple points on game-ending turns (P4).
+      isTriplePoints: event.isGameOver ? false : event.isTriplePoints,
     ));
   }
 }

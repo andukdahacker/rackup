@@ -387,6 +387,118 @@ func TestCalculateLeaderboard_ExcludesReferee(t *testing.T) {
 	}
 }
 
+// --- Triple Points Activation ---
+
+func TestConsequenceChain_TriplePointsActivation(t *testing.T) {
+	// 10 rounds, 1 player. Round 7 → AdvanceTurn → Round 8 (triple territory).
+	// Activation should fire on that transition.
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        7,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	chain := NewConsequenceChain()
+	ctx, err := chain.Run(gs, "shooter", "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !ctx.TriplePointsActivated {
+		t.Error("expected TriplePointsActivated=true when crossing into triple territory")
+	}
+	if ctx.CascadeProfile != "triple_points" {
+		t.Errorf("expected CascadeProfile='triple_points', got %q", ctx.CascadeProfile)
+	}
+}
+
+func TestConsequenceChain_TriplePointsActivation_NotSubsequentTurns(t *testing.T) {
+	// Already in triple territory (round 9 of 10). Should NOT fire activation.
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        9,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	chain := NewConsequenceChain()
+	ctx, err := chain.Run(gs, "shooter", "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ctx.TriplePointsActivated {
+		t.Error("expected TriplePointsActivated=false on subsequent triple-point turns")
+	}
+}
+
+func TestConsequenceChain_TriplePointsActivation_NotBeforeTriple(t *testing.T) {
+	// Round 5 of 10. Not near triple territory. Should NOT fire.
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        5,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	chain := NewConsequenceChain()
+	ctx, err := chain.Run(gs, "shooter", "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ctx.TriplePointsActivated {
+		t.Error("expected TriplePointsActivated=false before triple territory")
+	}
+	if ctx.CascadeProfile != "routine" {
+		t.Errorf("expected CascadeProfile='routine', got %q", ctx.CascadeProfile)
+	}
+}
+
+func TestConsequenceChain_TriplePointsOverridesStreakMilestone(t *testing.T) {
+	// Edge case: streak milestone AND triple activation on same turn.
+	// Triple should win.
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        7,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 1}, // streak 1→2 = milestone
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	chain := NewConsequenceChain()
+	ctx, err := chain.Run(gs, "shooter", "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// ShotResultStep sets "triple_points" before StreakUpdateStep runs.
+	// StreakUpdateStep must not override it — triple_points takes priority.
+	if ctx.CascadeProfile != "triple_points" {
+		t.Errorf("expected CascadeProfile='triple_points' (overrides streak_milestone), got %q", ctx.CascadeProfile)
+	}
+}
+
 // --- Chain context passing ---
 
 func TestConsequenceChain_ContextFlowsThroughSteps(t *testing.T) {

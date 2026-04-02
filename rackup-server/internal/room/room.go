@@ -713,11 +713,13 @@ func (r *Room) handleUndoShotLocked(deviceHash string) {
 			NextShooterHash: shooter, // same shooter (turn reverted)
 			CurrentRound:    r.gameState.CurrentRound,
 			IsGameOver:      false,
+			IsTriplePoints:  r.gameState.IsTriplePoints(),
 		},
-		StreakLabel:     game.StreakLabel(player.Streak),
-		StreakMilestone: false,
-		Leaderboard:    r.gameState.CalculateLeaderboard(nil),
-		CascadeProfile: "routine",
+		StreakLabel:           game.StreakLabel(player.Streak),
+		StreakMilestone:       false,
+		TriplePointsActivated: false, // undo never triggers activation
+		Leaderboard:           r.gameState.CalculateLeaderboard(nil),
+		CascadeProfile:        "routine",
 	}
 	r.broadcastTurnCompleteLocked(correctedCtx)
 }
@@ -742,18 +744,20 @@ func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
 	}
 
 	payload, err := json.Marshal(protocol.TurnCompletePayload{
-		ShooterHash:        result.ShooterHash,
-		Result:             result.Result,
-		PointsAwarded:      result.PointsAwarded,
-		NewScore:           result.NewScore,
-		NewStreak:          result.NewStreak,
-		CurrentShooterHash: result.NextShooterHash,
-		CurrentRound:       result.CurrentRound,
-		IsGameOver:         result.IsGameOver,
-		StreakLabel:         chainCtx.StreakLabel,
-		StreakMilestone:     chainCtx.StreakMilestone,
-		Leaderboard:        leaderboard,
-		CascadeProfile:     chainCtx.CascadeProfile,
+		ShooterHash:           result.ShooterHash,
+		Result:                result.Result,
+		PointsAwarded:         result.PointsAwarded,
+		NewScore:              result.NewScore,
+		NewStreak:             result.NewStreak,
+		CurrentShooterHash:    result.NextShooterHash,
+		CurrentRound:          result.CurrentRound,
+		IsGameOver:            result.IsGameOver,
+		StreakLabel:            chainCtx.StreakLabel,
+		StreakMilestone:        chainCtx.StreakMilestone,
+		Leaderboard:           leaderboard,
+		CascadeProfile:        chainCtx.CascadeProfile,
+		IsTriplePoints:        result.IsTriplePoints,
+		TriplePointsActivated: chainCtx.TriplePointsActivated,
 	})
 	if err != nil {
 		slog.Error("failed to marshal turn_complete", "code", r.code, "error", err)

@@ -25,6 +25,7 @@ class GameActive extends GameState {
     required this.turnOrder,
     required this.players,
     required this.tier,
+    this.isTriplePoints = false,
   });
 
   /// Total number of rounds.
@@ -48,6 +49,9 @@ class GameActive extends GameState {
   /// Current escalation tier.
   final EscalationTier tier;
 
+  /// Whether the game is in triple-point territory (final 3 rounds).
+  final bool isTriplePoints;
+
   /// Creates a copy with the given fields replaced.
   GameActive copyWith({
     int? roundCount,
@@ -57,6 +61,7 @@ class GameActive extends GameState {
     List<String>? turnOrder,
     List<GamePlayer>? players,
     EscalationTier? tier,
+    bool? isTriplePoints,
   }) {
     return GameActive(
       roundCount: roundCount ?? this.roundCount,
@@ -67,6 +72,7 @@ class GameActive extends GameState {
       turnOrder: turnOrder ?? this.turnOrder,
       players: players ?? this.players,
       tier: tier ?? this.tier,
+      isTriplePoints: isTriplePoints ?? this.isTriplePoints,
     );
   }
 
@@ -79,5 +85,6 @@ class GameActive extends GameState {
         turnOrder,
         players,
         tier,
+        isTriplePoints,
       ];
 }

@@ -23,6 +23,7 @@ class PlayerScreen extends StatelessWidget {
     required this.myDeviceIdHash,
     required this.currentShooterDeviceIdHash,
     required this.leaderboardBloc,
+    this.isTriplePoints = false,
     super.key,
   });
 
@@ -43,6 +44,9 @@ class PlayerScreen extends StatelessWidget {
 
   /// The current shooter's device ID hash (for turn indicator).
   final String currentShooterDeviceIdHash;
+
+  /// Whether the game is in triple-point territory.
+  final bool isTriplePoints;
 
   /// LeaderboardBloc for animated position tracking.
   final LeaderboardBloc leaderboardBloc;
@@ -66,16 +70,25 @@ class PlayerScreen extends StatelessWidget {
       }
     }
 
+    final themeData = RackUpGameTheme.maybeOf(context);
+    final bgColor = themeData?.backgroundColor ?? RackUpColors.canvas;
+    final transitionDuration =
+        themeData?.tierTransitionDuration ?? Duration.zero;
+
     return Scaffold(
-      backgroundColor: RackUpColors.canvas,
-      body: SafeArea(
-        child: Column(
+      backgroundColor: bgColor,
+      body: AnimatedContainer(
+        duration: transitionDuration,
+        color: bgColor,
+        child: SafeArea(
+          child: Column(
           children: [
             // Header (~60dp).
             ProgressTierBar(
               currentRound: currentRound,
               totalRounds: totalRounds,
               tier: tier,
+              isTriplePoints: isTriplePoints,
             ),
             // Leaderboard (~50%).
             Expanded(
@@ -166,6 +179,7 @@ class PlayerScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

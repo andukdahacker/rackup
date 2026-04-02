@@ -11,6 +11,7 @@ class CascadeTiming {
     return switch (cascadeProfile) {
       'routine' => Duration.zero,
       'streak_milestone' => const Duration(milliseconds: 500),
+      'triple_points' => const Duration(milliseconds: 500),
       // Future profiles with placeholder durations.
       'item_punishment' => const Duration(milliseconds: 1000),
       'spicy' => const Duration(milliseconds: 1200),

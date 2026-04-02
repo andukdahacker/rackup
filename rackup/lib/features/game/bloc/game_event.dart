@@ -59,6 +59,7 @@ class GameTurnCompleted extends GameEvent {
     this.streakMilestone = false,
     this.leaderboard = const [],
     this.cascadeProfile = 'routine',
+    this.isTriplePoints = false,
   });
 
   /// The shooter's device ID hash.
@@ -97,6 +98,9 @@ class GameTurnCompleted extends GameEvent {
   /// Cascade timing profile.
   final String cascadeProfile;
 
+  /// Whether the game is in triple-point territory (final 3 rounds).
+  final bool isTriplePoints;
+
   @override
   List<Object?> get props => [
         shooterHash,
@@ -111,6 +115,7 @@ class GameTurnCompleted extends GameEvent {
         streakMilestone,
         leaderboard,
         cascadeProfile,
+        isTriplePoints,
       ];
 }
 

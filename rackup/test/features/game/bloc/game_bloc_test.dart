@@ -200,6 +200,64 @@ void main() {
     );
 
     blocTest<GameBloc, GameState>(
+      'GameTurnCompleted sets isTriplePoints from event',
+      build: GameBloc.new,
+      seed: () => GameActive(
+        roundCount: 10,
+        currentRound: 7,
+        refereeDeviceIdHash: 'hash-b',
+        currentShooterDeviceIdHash: 'hash-a',
+        turnOrder: const ['hash-a', 'hash-b'],
+        players: testPlayers,
+        tier: EscalationTier.medium,
+      ),
+      act: (bloc) => bloc.add(const GameTurnCompleted(
+        shooterHash: 'hash-a',
+        result: 'made',
+        pointsAwarded: 9,
+        newScore: 9,
+        newStreak: 1,
+        currentShooterHash: 'hash-b',
+        currentRound: 8,
+        isGameOver: false,
+        isTriplePoints: true,
+      )),
+      verify: (bloc) {
+        final state = bloc.state as GameActive;
+        expect(state.isTriplePoints, isTrue);
+        expect(state.currentRound, 8);
+      },
+    );
+
+    blocTest<GameBloc, GameState>(
+      'isTriplePoints defaults to false when not set',
+      build: GameBloc.new,
+      seed: () => GameActive(
+        roundCount: 10,
+        currentRound: 1,
+        refereeDeviceIdHash: 'hash-b',
+        currentShooterDeviceIdHash: 'hash-a',
+        turnOrder: const ['hash-a', 'hash-b'],
+        players: testPlayers,
+        tier: EscalationTier.mild,
+      ),
+      act: (bloc) => bloc.add(const GameTurnCompleted(
+        shooterHash: 'hash-a',
+        result: 'made',
+        pointsAwarded: 3,
+        newScore: 3,
+        newStreak: 1,
+        currentShooterHash: 'hash-b',
+        currentRound: 1,
+        isGameOver: false,
+      )),
+      verify: (bloc) {
+        final state = bloc.state as GameActive;
+        expect(state.isTriplePoints, isFalse);
+      },
+    );
+
+    blocTest<GameBloc, GameState>(
       'GameTurnCompleted ignored when not in GameActive state',
       build: GameBloc.new,
       act: (bloc) => bloc.add(const GameTurnCompleted(

@@ -32,6 +32,7 @@ type TurnResult struct {
 	NextShooterHash    string
 	CurrentRound       int
 	IsGameOver         bool
+	IsTriplePoints     bool
 }
 
 // GameState holds the full state of an active game session.
@@ -173,6 +174,9 @@ func (gs *GameState) ProcessShot(shooterHash string, result string) (*TurnResult
 	if result == "made" {
 		player.Streak++
 		points = 3 + streakBonus(player.Streak)
+		if gs.IsTriplePoints() {
+			points *= 3
+		}
 		player.Score += points
 	} else {
 		player.Streak = 0
@@ -195,6 +199,7 @@ func (gs *GameState) ProcessShot(shooterHash string, result string) (*TurnResult
 		NextShooterHash: gs.CurrentShooterDeviceIDHash(),
 		CurrentRound:    gs.CurrentRound,
 		IsGameOver:      gs.IsGameOver(),
+		IsTriplePoints:  gs.IsTriplePoints(),
 	}, nil
 }
 
@@ -246,6 +251,12 @@ func (gs *GameState) UndoLastShot() error {
 	gs.lastRoundBefore = 0
 
 	return nil
+}
+
+// IsTriplePoints returns true when the game is in the final 3 rounds.
+// Examples: 10 rounds → R8-10 triple; 5 rounds → R3-5 triple; ≤3 rounds → ALL triple.
+func (gs *GameState) IsTriplePoints() bool {
+	return gs.CurrentRound > gs.RoundCount-3
 }
 
 // IsGameOver returns true when currentRound exceeds roundCount.

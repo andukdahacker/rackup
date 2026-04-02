@@ -32,6 +32,7 @@ class RefereeScreen extends StatefulWidget {
     required this.currentShooter,
     required this.webSocketCubit,
     required this.leaderboardBloc,
+    this.isTriplePoints = false,
     super.key,
   });
 
@@ -46,6 +47,9 @@ class RefereeScreen extends StatefulWidget {
 
   /// The player currently shooting.
   final GamePlayer currentShooter;
+
+  /// Whether the game is in triple-point territory.
+  final bool isTriplePoints;
 
   /// WebSocket cubit for sending messages.
   final WebSocketCubit webSocketCubit;
@@ -104,17 +108,26 @@ class _RefereeScreenState extends State<RefereeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeData = RackUpGameTheme.maybeOf(context);
+    final bgColor = themeData?.backgroundColor ?? RackUpColors.canvas;
+    final transitionDuration =
+        themeData?.tierTransitionDuration ?? Duration.zero;
+
     return Scaffold(
-      backgroundColor: RackUpColors.canvas,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Status Bar (~60dp).
-            ProgressTierBar(
-              currentRound: widget.currentRound,
-              totalRounds: widget.totalRounds,
-              tier: widget.tier,
-            ),
+      backgroundColor: bgColor,
+      body: AnimatedContainer(
+        duration: transitionDuration,
+        color: bgColor,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Status Bar (~60dp).
+              ProgressTierBar(
+                currentRound: widget.currentRound,
+                totalRounds: widget.totalRounds,
+                tier: widget.tier,
+                isTriplePoints: widget.isTriplePoints,
+              ),
             // Stage Area (~40%).
             Expanded(
               flex: 40,
@@ -233,7 +246,8 @@ class _RefereeScreenState extends State<RefereeScreen> {
                 },
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

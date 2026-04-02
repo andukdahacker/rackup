@@ -119,7 +119,7 @@ func newTestGameState() *GameState {
 		"hash-b": 2,
 		"hash-c": 3,
 	}
-	return NewGameState(players, slots, 3, "hash-a")
+	return NewGameState(players, slots, 10, "hash-a")
 }
 
 func TestProcessShot_Made_BaseScoring(t *testing.T) {
@@ -456,6 +456,135 @@ func TestUndoLastShot_RevertsGamePhaseAfterGameOver(t *testing.T) {
 	_, err = gs.ProcessShot("a", "missed")
 	if err != nil {
 		t.Errorf("expected ProcessShot to succeed after undo, got: %v", err)
+	}
+}
+
+// --- IsTriplePoints ---
+
+func TestIsTriplePoints_BoundaryDetection(t *testing.T) {
+	tests := []struct {
+		name         string
+		roundCount   int
+		currentRound int
+		want         bool
+	}{
+		// 10 rounds: R8=true, R7=false
+		{"10 rounds, R7 not triple", 10, 7, false},
+		{"10 rounds, R8 triple", 10, 8, true},
+		{"10 rounds, R9 triple", 10, 9, true},
+		{"10 rounds, R10 triple", 10, 10, true},
+		// 5 rounds: R3=true, R2=false
+		{"5 rounds, R2 not triple", 5, 2, false},
+		{"5 rounds, R3 triple", 5, 3, true},
+		{"5 rounds, R5 triple", 5, 5, true},
+		// 15 rounds: R13=true, R12=false
+		{"15 rounds, R12 not triple", 15, 12, false},
+		{"15 rounds, R13 triple", 15, 13, true},
+		// 3 rounds: ALL rounds triple
+		{"3 rounds, R1 triple", 3, 1, true},
+		{"3 rounds, R2 triple", 3, 2, true},
+		{"3 rounds, R3 triple", 3, 3, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gs := &GameState{
+				RoundCount:   tt.roundCount,
+				CurrentRound: tt.currentRound,
+			}
+			if got := gs.IsTriplePoints(); got != tt.want {
+				t.Errorf("IsTriplePoints() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProcessShot_TriplePointScoring(t *testing.T) {
+	tests := []struct {
+		name           string
+		roundCount     int
+		currentRound   int
+		streak         int
+		expectedPoints int
+		desc           string
+	}{
+		// Normal scoring (not triple)
+		{"normal base", 10, 5, 0, 3, "base 3 pts"},
+		{"normal streak2", 10, 5, 1, 4, "base 3 + streak bonus 1"},
+		// Triple scoring: 3x everything
+		{"triple base", 10, 8, 0, 9, "3x base (3*3=9)"},
+		{"triple streak2", 10, 8, 1, 12, "(3+1)*3=12"},
+		{"triple streak3", 10, 8, 2, 15, "(3+2)*3=15"},
+		{"triple streak4", 10, 8, 3, 18, "(3+3)*3=18"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gs := &GameState{
+				RoundCount:          tt.roundCount,
+				CurrentRound:        tt.currentRound,
+				RefereeDeviceIDHash: "ref",
+				TurnOrder:           []string{"shooter"},
+				CurrentShooterIndex: 0,
+				Players: map[string]*GamePlayer{
+					"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: tt.streak},
+				},
+				GamePhase: PhasePlaying,
+			}
+
+			result, err := gs.ProcessShot("shooter", "made")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.PointsAwarded != tt.expectedPoints {
+				t.Errorf("expected %d points (%s), got %d", tt.expectedPoints, tt.desc, result.PointsAwarded)
+			}
+		})
+	}
+}
+
+func TestProcessShot_TriplePointsFieldOnTurnResult(t *testing.T) {
+	// In triple territory — result.IsTriplePoints should be true.
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        8,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	result, err := gs.ProcessShot("shooter", "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// After AdvanceTurn, CurrentRound becomes 9 (still triple).
+	if !result.IsTriplePoints {
+		t.Error("expected IsTriplePoints=true in final 3 rounds")
+	}
+
+	// Not in triple territory.
+	gs2 := &GameState{
+		RoundCount:          10,
+		CurrentRound:        5,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	result2, err := gs2.ProcessShot("shooter", "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result2.IsTriplePoints {
+		t.Error("expected IsTriplePoints=false outside final 3 rounds")
 	}
 }
 

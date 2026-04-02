@@ -343,6 +343,8 @@ class TurnCompletePayload {
     this.streakMilestone = false,
     this.leaderboard = const [],
     this.cascadeProfile = 'routine',
+    this.isTriplePoints = false,
+    this.triplePointsActivated = false,
   });
 
   /// Creates from JSON map.
@@ -367,6 +369,8 @@ class TurnCompletePayload {
       streakMilestone: json['streakMilestone'] as bool? ?? false,
       leaderboard: leaderboardList,
       cascadeProfile: json['cascadeProfile'] as String? ?? 'routine',
+      isTriplePoints: json['isTriplePoints'] as bool? ?? false,
+      triplePointsActivated: json['triplePointsActivated'] as bool? ?? false,
     );
   }
 
@@ -403,8 +407,14 @@ class TurnCompletePayload {
   /// Leaderboard snapshot sorted by score descending.
   final List<LeaderboardEntryPayload> leaderboard;
 
-  /// Cascade timing profile: "routine", "streak_milestone", etc.
+  /// Cascade timing profile: "routine", "streak_milestone", "triple_points", etc.
   final String cascadeProfile;
+
+  /// Whether the game is in the final 3 rounds (triple-point territory).
+  final bool isTriplePoints;
+
+  /// Whether triple points just activated this turn (fires once).
+  final bool triplePointsActivated;
 }
 
 /// Wire payload for a single leaderboard entry.

@@ -12,6 +12,7 @@ import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/player_screen.dart';
 import 'package:rackup/features/game/view/referee_screen.dart';
 import 'package:rackup/features/game/view/widgets/role_reveal_overlay.dart';
+import 'package:rackup/features/game/view/widgets/triple_points_overlay.dart';
 
 /// Orchestrates role reveal and screen routing based on game state.
 class GamePage extends StatefulWidget {
@@ -23,6 +24,8 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   bool _overlayDismissed = false;
+  bool _triplePointsShown = false;
+  bool _triplePointsOverlayVisible = false;
 
   @override
   void initState() {
@@ -51,8 +54,42 @@ class _GamePageState extends State<GamePage> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: BlocBuilder<GameBloc, GameState>(
-        builder: (context, state) {
+      child: BlocListener<GameBloc, GameState>(
+        listenWhen: (prev, curr) {
+          if (prev is! GameActive || curr is! GameActive) return false;
+          // Trigger overlay on activation (P1: reset flag when undo
+          // reverts past triple boundary so it can re-fire).
+          if (prev.isTriplePoints && !curr.isTriplePoints) {
+            return true; // handled in listener to reset flag
+          }
+          return !prev.isTriplePoints && curr.isTriplePoints;
+        },
+        listener: (context, state) {
+          final active = state as GameActive;
+          // P1: Reset shown flag when triple points deactivates (undo).
+          if (!active.isTriplePoints) {
+            _triplePointsShown = false;
+            return;
+          }
+          if (_triplePointsShown) return;
+          _triplePointsShown = true;
+          _triplePointsOverlayVisible = true;
+          showGeneralDialog(
+            context: context,
+            barrierDismissible: false,
+            barrierColor: Colors.transparent,
+            pageBuilder: (dialogContext, __, ___) => TriplePointsOverlay(
+              onDismissed: () {
+                _triplePointsOverlayVisible = false;
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+            ),
+          );
+        },
+        child: BlocBuilder<GameBloc, GameState>(
+          builder: (context, state) {
           if (state is! GameActive) {
             return const Scaffold(
               backgroundColor: RackUpColors.canvas,
@@ -80,7 +117,8 @@ class _GamePageState extends State<GamePage> {
                 ? _buildRefereeContent(state, myDeviceIdHash)
                 : _buildPlayerContent(state, myDeviceIdHash),
           );
-        },
+          },
+        ),
       ),
     );
   }
@@ -112,6 +150,7 @@ class _GamePageState extends State<GamePage> {
       currentShooter: currentShooter,
       webSocketCubit: context.read<WebSocketCubit>(),
       leaderboardBloc: context.read<LeaderboardBloc>(),
+      isTriplePoints: state.isTriplePoints,
     );
   }
 
@@ -124,6 +163,7 @@ class _GamePageState extends State<GamePage> {
       myDeviceIdHash: myDeviceIdHash,
       currentShooterDeviceIdHash: state.currentShooterDeviceIdHash,
       leaderboardBloc: context.read<LeaderboardBloc>(),
+      isTriplePoints: state.isTriplePoints,
     );
   }
 }

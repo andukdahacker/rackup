@@ -27,8 +27,11 @@ type ChainContext struct {
 	// Populated by score_update / leaderboard_recalc steps.
 	Leaderboard []LeaderboardEntry
 
+	// TriplePointsActivated is true only on the first turn where triple points become active.
+	TriplePointsActivated bool
+
 	// CascadeProfile for UI timing.
-	CascadeProfile string // "routine", "streak_milestone", "item_punishment", "spicy", "record_this"
+	CascadeProfile string // "routine", "streak_milestone", "item_punishment", "spicy", "record_this", "triple_points"
 
 	// Reference to game state (read-only after shot processing).
 	gameState *GameState
@@ -124,11 +127,24 @@ func (c *ConsequenceChain) StepNames() []string {
 type ShotResultStep struct{}
 
 func (s *ShotResultStep) Execute(ctx *ChainContext) error {
+	// Capture triple-point state BEFORE ProcessShot (which may call AdvanceTurn).
+	preShotTriple := ctx.gameState.IsTriplePoints()
+
 	result, err := ctx.gameState.ProcessShot(ctx.ShooterHash, ctx.ShotResult)
 	if err != nil {
 		return err
 	}
 	ctx.TurnResult = result
+
+	// Detect activation: triple points just became active due to AdvanceTurn.
+	postShotTriple := ctx.gameState.IsTriplePoints()
+	ctx.TriplePointsActivated = !preShotTriple && postShotTriple
+
+	// Override cascade profile on activation (takes priority over streak_milestone).
+	if ctx.TriplePointsActivated {
+		ctx.CascadeProfile = "triple_points"
+	}
+
 	return nil
 }
 
@@ -147,7 +163,8 @@ func (s *StreakUpdateStep) Execute(ctx *ChainContext) error {
 	ctx.StreakMilestone = streak == 2 || streak == 3 || streak == 4
 
 	// Update cascade profile for milestone transitions.
-	if ctx.StreakMilestone {
+	// Do not override "triple_points" — it takes priority over streak_milestone.
+	if ctx.StreakMilestone && ctx.CascadeProfile != "triple_points" {
 		ctx.CascadeProfile = "streak_milestone"
 	}
 
