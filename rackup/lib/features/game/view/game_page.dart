@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:rackup/core/audio/audio_listener.dart';
+import 'package:rackup/core/audio/sound_manager.dart';
 import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
+import 'package:rackup/core/services/wake_lock_manager.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
@@ -26,15 +31,26 @@ class _GamePageState extends State<GamePage> {
   bool _overlayDismissed = false;
   bool _triplePointsShown = false;
   bool _triplePointsOverlayVisible = false;
+  late final SoundManager _soundManager;
+  late final WakeLockManager _wakeLockManager;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    _soundManager = SoundManager();
+    unawaited(_soundManager.init());
+    _wakeLockManager = WakeLockManager();
+    unawaited(_wakeLockManager.enable());
   }
 
   @override
   void dispose() {
+    try {
+      unawaited(_soundManager.dispose());
+    } finally {
+      unawaited(_wakeLockManager.disable());
+    }
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
@@ -54,7 +70,9 @@ class _GamePageState extends State<GamePage> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: BlocListener<GameBloc, GameState>(
+      child: AudioListener(
+        soundManager: _soundManager,
+        child: BlocListener<GameBloc, GameState>(
         listenWhen: (prev, curr) {
           if (prev is! GameActive || curr is! GameActive) return false;
           // Trigger overlay on activation (P1: reset flag when undo
@@ -119,6 +137,11 @@ class _GamePageState extends State<GamePage> {
           );
           },
         ),
+      ),
+      // Defense-in-depth: Also disable wake lock when GameBloc emits a
+      // terminal state (game ended/left). Currently no terminal state exists
+      // (GameEnded comes in Epic 8). Wire _wakeLockManager.disable() here
+      // when that state is added.
       ),
     );
   }
