@@ -525,3 +525,99 @@ func TestConsequenceChain_ContextFlowsThroughSteps(t *testing.T) {
 		t.Error("Leaderboard should be set by leaderboard_recalc step")
 	}
 }
+
+// --- Punishment Step Integration ---
+
+func TestConsequenceChain_PunishmentOnMissedShot(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        2, // 20% → mild tier
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", DisplayName: "Alex", Score: 5, Streak: 1},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	deck := NewPunishmentDeck(nil)
+	chain := NewConsequenceChain()
+	chain.ReplaceStep("punishment_slot", &PunishmentStep{Deck: deck})
+	chain.ReplaceStep("record_this_check_slot", &RecordThisCheckStep{})
+
+	ctx, err := chain.Run(gs, "shooter", "missed")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ctx.Punishment == "" {
+		t.Error("expected punishment text for missed shot in chain")
+	}
+	if ctx.PunishmentTier == "" {
+		t.Error("expected punishment tier for missed shot in chain")
+	}
+	// Mild tier should upgrade cascade from routine to streak_milestone.
+	if ctx.CascadeProfile != "streak_milestone" {
+		t.Errorf("expected cascade 'streak_milestone' for mild punishment, got %q", ctx.CascadeProfile)
+	}
+}
+
+func TestConsequenceChain_NoPunishmentOnMadeShot(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        2,
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", DisplayName: "Alex", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	deck := NewPunishmentDeck(nil)
+	chain := NewConsequenceChain()
+	chain.ReplaceStep("punishment_slot", &PunishmentStep{Deck: deck})
+
+	ctx, err := chain.Run(gs, "shooter", "made")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ctx.Punishment != "" {
+		t.Errorf("expected no punishment for made shot, got %q", ctx.Punishment)
+	}
+}
+
+func TestConsequenceChain_PunishmentWithCustomDeck(t *testing.T) {
+	gs := &GameState{
+		RoundCount:          10,
+		CurrentRound:        5, // 50% → medium tier
+		RefereeDeviceIDHash: "ref",
+		TurnOrder:           []string{"shooter"},
+		CurrentShooterIndex: 0,
+		Players: map[string]*GamePlayer{
+			"shooter": {DeviceIDHash: "shooter", DisplayName: "Alex", Score: 0, Streak: 0},
+		},
+		GamePhase: PhasePlaying,
+	}
+
+	customs := []string{"Custom punishment one", "Custom punishment two"}
+	deck := NewPunishmentDeck(customs)
+	chain := NewConsequenceChain()
+	chain.ReplaceStep("punishment_slot", &PunishmentStep{Deck: deck})
+
+	ctx, err := chain.Run(gs, "shooter", "missed")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ctx.Punishment == "" {
+		t.Error("expected punishment text for missed shot with custom deck")
+	}
+	// Tier should be medium or custom.
+	if ctx.PunishmentTier != TierMedium && ctx.PunishmentTier != TierCustom {
+		t.Errorf("expected tier 'medium' or 'custom', got %q", ctx.PunishmentTier)
+	}
+}

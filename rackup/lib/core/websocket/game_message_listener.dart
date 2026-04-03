@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:rackup/core/audio/sound_manager.dart';
 import 'package:rackup/core/protocol/actions.dart';
 import 'package:rackup/core/protocol/mapper.dart';
 import 'package:rackup/core/protocol/messages.dart';
@@ -25,6 +26,7 @@ class GameMessageListener {
     required LeaderboardBloc leaderboardBloc,
     required EventFeedCubit eventFeedCubit,
     required String localDeviceIdHash,
+    required SoundManager soundManager,
   }) : _subscription = webSocketCubit.messages.listen((message) {
           _handleMessage(
             message,
@@ -32,6 +34,7 @@ class GameMessageListener {
             leaderboardBloc,
             eventFeedCubit,
             localDeviceIdHash,
+            soundManager,
           );
         });
 
@@ -43,6 +46,7 @@ class GameMessageListener {
     LeaderboardBloc leaderboardBloc,
     EventFeedCubit eventFeedCubit,
     String localDeviceIdHash,
+    SoundManager soundManager,
   ) {
     try {
       switch (message.action) {
@@ -91,6 +95,11 @@ class GameMessageListener {
 
           // Generate event feed items from turn result.
           _generateEventFeedItems(payload, eventFeedCubit, localDeviceIdHash);
+
+          // Trigger punishment reveal sound when punishment is drawn.
+          if (payload.punishment != null) {
+            unawaited(soundManager.play(GameSound.punishmentReveal));
+          }
 
           // Dispatch RECORD THIS if applicable.
           if (payload.recordThis &&
@@ -169,6 +178,16 @@ class GameMessageListener {
       ));
     }
 
+    // 1b. Punishment event (after missed score, before streak).
+    if (payload.punishment != null) {
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'punishment-${now.microsecondsSinceEpoch}',
+        text: '\u{1F3AF} $shooterName: ${payload.punishment!.text}',
+        category: EventFeedCategory.punishment,
+        timestamp: now,
+      ));
+    }
+
     // 2. Streak event (if milestone).
     if (payload.streakMilestone) {
       final streakText = switch (payload.streakLabel) {
@@ -207,7 +226,6 @@ class GameMessageListener {
 
     // Extension points for future event sources:
     // - Item deployments (Epic 5): EventFeedCategory.item
-    // - Punishment reveals (Epic 4): EventFeedCategory.punishment
     // - Mission completions (Epic 6): EventFeedCategory.mission
   }
 

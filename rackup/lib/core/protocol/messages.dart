@@ -326,6 +326,28 @@ class ConfirmShotPayload {
   Map<String, dynamic> toJson() => {'result': result};
 }
 
+/// Nested punishment payload in turn_complete.
+/// Null when no punishment is drawn (on MADE shots).
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (PunishmentPayload)
+class PunishmentPayload {
+  /// Creates a [PunishmentPayload].
+  const PunishmentPayload({required this.text, required this.tier});
+
+  /// Creates from JSON map.
+  factory PunishmentPayload.fromJson(Map<String, dynamic> json) {
+    return PunishmentPayload(
+      text: json['text'] as String,
+      tier: json['tier'] as String,
+    );
+  }
+
+  /// The punishment text.
+  final String text;
+
+  /// The punishment tier: "mild", "medium", "spicy", "custom".
+  final String tier;
+}
+
 /// Wire payload for server→client game.turn_complete.
 /// SYNC WITH: rackup-server/internal/protocol/messages.go (TurnCompletePayload)
 class TurnCompletePayload {
@@ -345,6 +367,7 @@ class TurnCompletePayload {
     this.cascadeProfile = 'routine',
     this.isTriplePoints = false,
     this.triplePointsActivated = false,
+    this.punishment,
     this.recordThis = false,
     this.recordThisSubtext = '',
     this.recordThisTargetHash = '',
@@ -359,6 +382,7 @@ class TurnCompletePayload {
             )
             .toList() ??
         const [];
+    final punishmentJson = json['punishment'] as Map<String, dynamic>?;
     return TurnCompletePayload(
       shooterHash: json['shooterHash'] as String,
       result: json['result'] as String,
@@ -374,6 +398,9 @@ class TurnCompletePayload {
       cascadeProfile: json['cascadeProfile'] as String? ?? 'routine',
       isTriplePoints: json['isTriplePoints'] as bool? ?? false,
       triplePointsActivated: json['triplePointsActivated'] as bool? ?? false,
+      punishment: punishmentJson != null
+          ? PunishmentPayload.fromJson(punishmentJson)
+          : null,
       recordThis: json['recordThis'] as bool? ?? false,
       recordThisSubtext: json['recordThisSubtext'] as String? ?? '',
       recordThisTargetHash: json['recordThisTargetHash'] as String? ?? '',
@@ -421,6 +448,9 @@ class TurnCompletePayload {
 
   /// Whether triple points just activated this turn (fires once).
   final bool triplePointsActivated;
+
+  /// Punishment drawn on missed shot. Null when shot was made.
+  final PunishmentPayload? punishment;
 
   /// Whether a RECORD THIS moment was detected.
   final bool recordThis;

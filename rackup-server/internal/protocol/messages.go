@@ -71,6 +71,13 @@ type ConfirmShotPayload struct {
 	Result string `json:"result"` // "made" or "missed"
 }
 
+// PunishmentPayload is the nested punishment object in turn_complete.
+// Absent (omitempty) when no punishment is drawn (on MADE shots).
+type PunishmentPayload struct {
+	Text string `json:"text"`
+	Tier string `json:"tier"`
+}
+
 // TurnCompletePayload is the server→client payload for game.turn_complete.
 type TurnCompletePayload struct {
 	ShooterHash            string             `json:"shooterHash"`
@@ -87,6 +94,7 @@ type TurnCompletePayload struct {
 	CascadeProfile         string             `json:"cascadeProfile"`          // "routine", "streak_milestone", "triple_points", etc.
 	IsTriplePoints         bool               `json:"isTriplePoints"`          // true when in final 3 rounds
 	TriplePointsActivated  bool               `json:"triplePointsActivated"`   // true only on first triple-point turn
+	Punishment             *PunishmentPayload `json:"punishment,omitempty"`    // punishment drawn on missed shot
 	RecordThis             bool               `json:"recordThis"`              // true when RECORD THIS moment detected
 	RecordThisSubtext      string             `json:"recordThisSubtext"`       // descriptive text for the alert
 	RecordThisTargetHash   string             `json:"recordThisTargetHash"`    // player to exclude from alert

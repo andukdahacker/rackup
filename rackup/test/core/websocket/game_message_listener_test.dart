@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:rackup/core/audio/sound_manager.dart';
 import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/websocket/game_message_listener.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
@@ -31,18 +33,36 @@ class MockWebSocketCubit extends MockCubit<WebSocketState>
   }
 }
 
+class _NoOpAudioPlayer extends AudioPlayer {
+  @override
+  Future<void> setPlayerMode(PlayerMode mode) async {}
+  @override
+  Future<void> setSource(Source source) async {}
+  @override
+  Future<void> seek(Duration position) async {}
+  @override
+  Future<void> resume() async {}
+  @override
+  Future<void> dispose() async {}
+}
+
 void main() {
   group('GameMessageListener', () {
     late MockWebSocketCubit mockWsCubit;
     late GameBloc gameBloc;
     late LeaderboardBloc leaderboardBloc;
     late EventFeedCubit eventFeedCubit;
+    late SoundManager soundManager;
 
     setUp(() {
       mockWsCubit = MockWebSocketCubit();
       gameBloc = GameBloc();
       leaderboardBloc = LeaderboardBloc();
       eventFeedCubit = EventFeedCubit();
+      soundManager = SoundManager(
+        playerFactory: _NoOpAudioPlayer.new,
+        skipGlobalConfig: true,
+      );
     });
 
     tearDown(() {
@@ -60,6 +80,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -120,6 +141,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -191,6 +213,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -237,6 +260,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       // Send malformed payload.
@@ -270,6 +294,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -323,6 +348,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -373,6 +399,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -429,6 +456,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -483,6 +511,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(const Message(
@@ -514,6 +543,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -569,6 +599,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'hash-a', // matches target
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -623,6 +654,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -677,6 +709,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'hash-a', // matches target
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -732,6 +765,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -788,6 +822,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -829,6 +864,159 @@ void main() {
       expect(recordEvent.category, EventFeedCategory.system);
 
       listener.dispose();
+    });
+
+    test('punishment in turn_complete generates punishment event feed item',
+        () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'missed',
+          'pointsAwarded': 0,
+          'newScore': 0,
+          'newStreak': 0,
+          'currentShooterHash': 'hash-a',
+          'currentRound': 1,
+          'isGameOver': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 0,
+              'streak': 0,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'streak_milestone',
+          'punishment': {
+            'text': 'Speak in an accent',
+            'tier': 'MILD',
+          },
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // Should have score event + punishment event (newest first).
+      expect(eventFeedCubit.state.events.length, 2);
+      // Punishment event is added after score → newest = index 0.
+      final punishmentEvent = eventFeedCubit.state.events[0];
+      expect(punishmentEvent.text, contains('Speak in an accent'));
+      expect(punishmentEvent.text, contains('Alice'));
+      expect(
+          punishmentEvent.category, EventFeedCategory.punishment);
+
+      listener.dispose();
+    });
+
+    test('no punishment event when punishment is null', () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'made',
+          'pointsAwarded': 3,
+          'newScore': 3,
+          'newStreak': 1,
+          'currentShooterHash': 'hash-a',
+          'currentRound': 1,
+          'isGameOver': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 3,
+              'streak': 1,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'routine',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // Only score event, no punishment.
+      expect(eventFeedCubit.state.events.length, 1);
+      expect(eventFeedCubit.state.events.first.category,
+          EventFeedCategory.score);
+
+      listener.dispose();
+    });
+
+    test('PunishmentPayload deserializes from JSON', () {
+      final json = {
+        'shooterHash': 'hash-a',
+        'result': 'missed',
+        'pointsAwarded': 0,
+        'newScore': 0,
+        'newStreak': 0,
+        'currentShooterHash': 'hash-a',
+        'currentRound': 1,
+        'isGameOver': false,
+        'punishment': {
+          'text': 'Do 5 jumping jacks',
+          'tier': 'MILD',
+        },
+      };
+      final payload = TurnCompletePayload.fromJson(json);
+      expect(payload.punishment, isNotNull);
+      expect(payload.punishment!.text, 'Do 5 jumping jacks');
+      expect(payload.punishment!.tier, 'MILD');
+    });
+
+    test('PunishmentPayload is null when absent from JSON', () {
+      final json = {
+        'shooterHash': 'hash-a',
+        'result': 'made',
+        'pointsAwarded': 3,
+        'newScore': 3,
+        'newStreak': 1,
+        'currentShooterHash': 'hash-a',
+        'currentRound': 1,
+        'isGameOver': false,
+      };
+      final payload = TurnCompletePayload.fromJson(json);
+      expect(payload.punishment, isNull);
     });
   });
 }

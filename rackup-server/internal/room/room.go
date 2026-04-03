@@ -55,6 +55,7 @@ type Room struct {
 	roundCount               int                   // configured round count (5, 10, or 15)
 	gameStarted              bool                  // prevents double-start
 	gameState                *game.GameState       // active game session state
+	punishmentDeck           *game.PunishmentDeck  // punishment deck for game-time draws
 	timeoutBroadcast         bool                  // ensures timeout room_state broadcast fires once
 	createdAt                time.Time
 	actions                  chan Action
@@ -561,6 +562,13 @@ func (r *Room) handleStartGame(deviceHash string, raw json.RawMessage) {
 	}
 	r.gameState = game.NewGameState(playerNames, r.slotAssignments, r.roundCount, r.hostDeviceHash)
 
+	// Construct punishment deck from submitted custom punishments.
+	customPunishments := make([]string, 0, len(r.punishments))
+	for _, text := range r.punishments {
+		customPunishments = append(customPunishments, text)
+	}
+	r.punishmentDeck = game.NewPunishmentDeck(customPunishments)
+
 	// Build and broadcast game.initialized payload.
 	gamePlayers := make([]protocol.GamePlayerPayload, 0, len(r.gameState.Players))
 	for _, dh := range r.gameState.TurnOrder {
@@ -649,6 +657,7 @@ func (r *Room) handleConfirmShotLocked(deviceHash string, payload json.RawMessag
 
 	// Run consequence chain instead of direct ProcessShot.
 	chain := game.NewConsequenceChain()
+	chain.ReplaceStep("punishment_slot", &game.PunishmentStep{Deck: r.punishmentDeck})
 	chain.ReplaceStep("record_this_check_slot", &game.RecordThisCheckStep{})
 	chainCtx, err := chain.Run(r.gameState, r.gameState.CurrentShooterDeviceIDHash(), shotPayload.Result)
 	if err != nil {
@@ -744,6 +753,15 @@ func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
 		}
 	}
 
+	// Build punishment payload (nil when no punishment drawn).
+	var punishmentPayload *protocol.PunishmentPayload
+	if chainCtx.Punishment != "" {
+		punishmentPayload = &protocol.PunishmentPayload{
+			Text: chainCtx.Punishment,
+			Tier: chainCtx.PunishmentTier,
+		}
+	}
+
 	payload, err := json.Marshal(protocol.TurnCompletePayload{
 		ShooterHash:           result.ShooterHash,
 		Result:                result.Result,
@@ -759,6 +777,7 @@ func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
 		CascadeProfile:        chainCtx.CascadeProfile,
 		IsTriplePoints:        result.IsTriplePoints,
 		TriplePointsActivated: chainCtx.TriplePointsActivated,
+		Punishment:            punishmentPayload,
 		RecordThis:            chainCtx.RecordThis,
 		RecordThisSubtext:     chainCtx.RecordThisSubtext,
 		RecordThisTargetHash:  chainCtx.TargetPlayerHash,

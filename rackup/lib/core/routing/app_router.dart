@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rackup/core/audio/sound_manager.dart';
 import 'package:rackup/core/config/app_config.dart';
 import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/services/room_api_service.dart';
@@ -79,6 +82,7 @@ class _RoomShellState extends State<_RoomShell> {
   late final GameBloc _gameBloc;
   late final LeaderboardBloc _leaderboardBloc;
   late final EventFeedCubit _eventFeedCubit;
+  late final SoundManager _soundManager;
   GameMessageListener? _gameMessageListener;
 
   @override
@@ -88,6 +92,8 @@ class _RoomShellState extends State<_RoomShell> {
     _gameBloc = GameBloc();
     _leaderboardBloc = LeaderboardBloc();
     _eventFeedCubit = EventFeedCubit();
+    _soundManager = SoundManager();
+    unawaited(_soundManager.init());
   }
 
   @override
@@ -108,6 +114,7 @@ class _RoomShellState extends State<_RoomShell> {
         eventFeedCubit: _eventFeedCubit,
         localDeviceIdHash:
             context.read<DeviceIdentityService>().getHashedDeviceId(),
+        soundManager: _soundManager,
       );
       _blocCreated = true;
     }
@@ -118,6 +125,7 @@ class _RoomShellState extends State<_RoomShell> {
   @override
   void dispose() {
     _gameMessageListener?.dispose();
+    unawaited(_soundManager.dispose());
     _eventFeedCubit.close();
     _leaderboardBloc.close();
     _gameBloc.close();

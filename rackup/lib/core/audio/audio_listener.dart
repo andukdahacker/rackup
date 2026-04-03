@@ -26,10 +26,8 @@ class AudioListener extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // EXTENSION POINT: Punishment reveal sound (Epic 4)
-    // When PunishmentBloc is implemented, add a BlocListener here that
-    // triggers `soundManager.play(GameSound.punishmentReveal)` on
-    // punishment draw events.
+    // Punishment reveal sound (Epic 4): Triggered from GameMessageListener
+    // when turn_complete contains a punishment payload, not via BlocListener.
 
     // EXTENSION POINT: Blue Shell impact sound (Epic 5)
     // When ItemBloc is implemented, add a BlocListener here that

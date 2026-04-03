@@ -35,6 +35,10 @@ type ChainContext struct {
 	RecordThisSubtext string
 	TargetPlayerHash  string
 
+	// Populated by punishment_step.
+	Punishment     string // drawn punishment text (empty if shot was made)
+	PunishmentTier string // "mild", "medium", "spicy", "custom" (empty if no punishment)
+
 	// CascadeProfile for UI timing.
 	CascadeProfile string // "routine", "streak_milestone", "item_punishment", "spicy", "record_this", "triple_points"
 
