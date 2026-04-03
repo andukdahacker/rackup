@@ -30,6 +30,11 @@ type ChainContext struct {
 	// TriplePointsActivated is true only on the first turn where triple points become active.
 	TriplePointsActivated bool
 
+	// RecordThis is true when a shareable "RECORD THIS" moment is detected.
+	RecordThis        bool
+	RecordThisSubtext string
+	TargetPlayerHash  string
+
 	// CascadeProfile for UI timing.
 	CascadeProfile string // "routine", "streak_milestone", "item_punishment", "spicy", "record_this", "triple_points"
 

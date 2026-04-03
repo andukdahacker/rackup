@@ -87,6 +87,9 @@ type TurnCompletePayload struct {
 	CascadeProfile         string             `json:"cascadeProfile"`          // "routine", "streak_milestone", "triple_points", etc.
 	IsTriplePoints         bool               `json:"isTriplePoints"`          // true when in final 3 rounds
 	TriplePointsActivated  bool               `json:"triplePointsActivated"`   // true only on first triple-point turn
+	RecordThis             bool               `json:"recordThis"`              // true when RECORD THIS moment detected
+	RecordThisSubtext      string             `json:"recordThisSubtext"`       // descriptive text for the alert
+	RecordThisTargetHash   string             `json:"recordThisTargetHash"`    // player to exclude from alert
 }
 
 // LeaderboardEntry represents a single player's ranking in the leaderboard.

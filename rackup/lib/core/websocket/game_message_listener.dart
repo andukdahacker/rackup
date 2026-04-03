@@ -24,8 +24,15 @@ class GameMessageListener {
     required GameBloc gameBloc,
     required LeaderboardBloc leaderboardBloc,
     required EventFeedCubit eventFeedCubit,
+    required String localDeviceIdHash,
   }) : _subscription = webSocketCubit.messages.listen((message) {
-          _handleMessage(message, gameBloc, leaderboardBloc, eventFeedCubit);
+          _handleMessage(
+            message,
+            gameBloc,
+            leaderboardBloc,
+            eventFeedCubit,
+            localDeviceIdHash,
+          );
         });
 
   final StreamSubscription<Message> _subscription;
@@ -35,6 +42,7 @@ class GameMessageListener {
     GameBloc gameBloc,
     LeaderboardBloc leaderboardBloc,
     EventFeedCubit eventFeedCubit,
+    String localDeviceIdHash,
   ) {
     try {
       switch (message.action) {
@@ -82,7 +90,17 @@ class GameMessageListener {
           ));
 
           // Generate event feed items from turn result.
-          _generateEventFeedItems(payload, eventFeedCubit);
+          _generateEventFeedItems(payload, eventFeedCubit, localDeviceIdHash);
+
+          // Dispatch RECORD THIS if applicable.
+          if (payload.recordThis &&
+              localDeviceIdHash != payload.recordThisTargetHash &&
+              !payload.isGameOver) {
+            gameBloc.add(RecordThisReceived(
+              subtext: payload.recordThisSubtext,
+              targetHash: payload.recordThisTargetHash,
+            ));
+          }
 
         case Actions.gameEnded:
           // Safety net: server sends game.game_ended after game.turn_complete.
@@ -105,6 +123,7 @@ class GameMessageListener {
   static void _generateEventFeedItems(
     TurnCompletePayload payload,
     EventFeedCubit eventFeedCubit,
+    String localDeviceIdHash,
   ) {
     final now = DateTime.now();
 
@@ -115,6 +134,19 @@ class GameMessageListener {
         shooterName = entry.displayName;
         break;
       }
+    }
+
+    // 0. RECORD THIS event (before score event).
+    // Exclude target player and game-over to match overlay filtering.
+    if (payload.recordThis &&
+        localDeviceIdHash != payload.recordThisTargetHash &&
+        !payload.isGameOver) {
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'recordthis-${now.microsecondsSinceEpoch}',
+        text: '\u{1F4F7} ${payload.recordThisSubtext}',
+        category: EventFeedCategory.system,
+        timestamp: now,
+      ));
     }
 
     // 1. Score event (always).

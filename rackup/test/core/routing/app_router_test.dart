@@ -26,6 +26,8 @@ void main() {
     mockAppConfig = MockAppConfig();
     when(() => mockAppConfig.apiBaseUrl).thenReturn('http://localhost:3000');
     when(() => mockAppConfig.wsBaseUrl).thenReturn('ws://localhost:3000');
+    when(() => mockDeviceIdentityService.getHashedDeviceId())
+        .thenReturn('mock-hash');
   });
 
   Widget buildApp() {

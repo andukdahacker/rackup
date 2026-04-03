@@ -10,6 +10,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<GameInitialized>(_onGameInitialized);
     on<GameTurnCompleted>(_onGameTurnCompleted);
     on<GameEndReceived>(_onGameEndReceived);
+    on<RecordThisReceived>(_onRecordThisReceived);
+    on<RecordThisDismissed>(_onRecordThisDismissed);
   }
 
   void _onGameInitialized(
@@ -68,6 +70,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       players: updatedPlayers,
       tier: tier,
       isTriplePoints: event.isTriplePoints,
+      showRecordThis: false,
+      recordThisSubtext: '',
     ));
   }
 
@@ -84,5 +88,29 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         refereeDeviceIdHash: current.refereeDeviceIdHash,
       ));
     }
+  }
+
+  void _onRecordThisReceived(
+    RecordThisReceived event,
+    Emitter<GameState> emit,
+  ) {
+    final current = state;
+    if (current is! GameActive) return;
+    emit(current.copyWith(
+      showRecordThis: true,
+      recordThisSubtext: event.subtext,
+    ));
+  }
+
+  void _onRecordThisDismissed(
+    RecordThisDismissed event,
+    Emitter<GameState> emit,
+  ) {
+    final current = state;
+    if (current is! GameActive) return;
+    emit(current.copyWith(
+      showRecordThis: false,
+      recordThisSubtext: '',
+    ));
   }
 }

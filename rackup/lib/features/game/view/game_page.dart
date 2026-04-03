@@ -12,11 +12,13 @@ import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
+import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/player_screen.dart';
 import 'package:rackup/features/game/view/referee_screen.dart';
 import 'package:rackup/features/game/view/widgets/role_reveal_overlay.dart';
+import 'package:rackup/features/game/view/widgets/record_this_overlay.dart';
 import 'package:rackup/features/game/view/widgets/triple_points_overlay.dart';
 
 /// Orchestrates role reveal and screen routing based on game state.
@@ -32,6 +34,8 @@ class _GamePageState extends State<GamePage> {
   bool _triplePointsShown = false;
   bool _triplePointsOverlayVisible = false;
   NavigatorState? _triplePointsNavigator;
+  bool _recordThisOverlayVisible = false;
+  NavigatorState? _recordThisNavigator;
   late final SoundManager _soundManager;
   late final WakeLockManager _wakeLockManager;
 
@@ -112,6 +116,57 @@ class _GamePageState extends State<GamePage> {
             },
           ),
           BlocListener<GameBloc, GameState>(
+            listenWhen: (prev, curr) {
+              if (prev is! GameActive || curr is! GameActive) return false;
+              return !prev.showRecordThis && curr.showRecordThis;
+            },
+            listener: (context, state) {
+              final active = state as GameActive;
+
+              // RECORD THIS overrides triple points (cascade priority).
+              if (_triplePointsOverlayVisible) {
+                _triplePointsNavigator?.pop();
+                _triplePointsNavigator = null;
+                _triplePointsOverlayVisible = false;
+              }
+
+              _recordThisOverlayVisible = true;
+
+              // Resolve current tier label.
+              final tierLabel = switch (active.tier) {
+                EscalationTier.mild => 'Mild',
+                EscalationTier.medium => 'Medium',
+                EscalationTier.spicy => 'Spicy',
+                _ => '',
+              };
+
+              showGeneralDialog(
+                context: context,
+                barrierDismissible: false,
+                barrierColor: Colors.transparent,
+                pageBuilder: (dialogContext, __, ___) {
+                  _recordThisNavigator = Navigator.of(dialogContext);
+                  return RecordThisOverlay(
+                    subtext: active.recordThisSubtext,
+                    tierLabel: tierLabel,
+                    onDismissed: () {
+                      _recordThisOverlayVisible = false;
+                      _recordThisNavigator = null;
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                      if (context.mounted) {
+                        context
+                            .read<GameBloc>()
+                            .add(const RecordThisDismissed());
+                      }
+                    },
+                  );
+                },
+              );
+            },
+          ),
+          BlocListener<GameBloc, GameState>(
             listenWhen: (prev, curr) => curr is GameEnded,
             listener: (context, state) {
               unawaited(_wakeLockManager.disable());
@@ -119,6 +174,14 @@ class _GamePageState extends State<GamePage> {
                 _triplePointsNavigator?.pop();
                 _triplePointsNavigator = null;
                 _triplePointsOverlayVisible = false;
+              }
+              if (_recordThisOverlayVisible) {
+                _recordThisNavigator?.pop();
+                _recordThisNavigator = null;
+                _recordThisOverlayVisible = false;
+                context
+                    .read<GameBloc>()
+                    .add(const RecordThisDismissed());
               }
             },
           ),

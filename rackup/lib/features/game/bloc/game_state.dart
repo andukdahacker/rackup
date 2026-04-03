@@ -26,6 +26,8 @@ class GameActive extends GameState {
     required this.players,
     required this.tier,
     this.isTriplePoints = false,
+    this.showRecordThis = false,
+    this.recordThisSubtext = '',
   });
 
   /// Total number of rounds.
@@ -52,6 +54,12 @@ class GameActive extends GameState {
   /// Whether the game is in triple-point territory (final 3 rounds).
   final bool isTriplePoints;
 
+  /// Whether a RECORD THIS overlay should be shown.
+  final bool showRecordThis;
+
+  /// Descriptive text for the RECORD THIS alert.
+  final String recordThisSubtext;
+
   /// Creates a copy with the given fields replaced.
   GameActive copyWith({
     int? roundCount,
@@ -62,6 +70,8 @@ class GameActive extends GameState {
     List<GamePlayer>? players,
     EscalationTier? tier,
     bool? isTriplePoints,
+    bool? showRecordThis,
+    String? recordThisSubtext,
   }) {
     return GameActive(
       roundCount: roundCount ?? this.roundCount,
@@ -73,6 +83,8 @@ class GameActive extends GameState {
       players: players ?? this.players,
       tier: tier ?? this.tier,
       isTriplePoints: isTriplePoints ?? this.isTriplePoints,
+      showRecordThis: showRecordThis ?? this.showRecordThis,
+      recordThisSubtext: recordThisSubtext ?? this.recordThisSubtext,
     );
   }
 
@@ -86,6 +98,8 @@ class GameActive extends GameState {
         players,
         tier,
         isTriplePoints,
+        showRecordThis,
+        recordThisSubtext,
       ];
 }
 

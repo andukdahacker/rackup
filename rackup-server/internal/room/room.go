@@ -649,6 +649,7 @@ func (r *Room) handleConfirmShotLocked(deviceHash string, payload json.RawMessag
 
 	// Run consequence chain instead of direct ProcessShot.
 	chain := game.NewConsequenceChain()
+	chain.ReplaceStep("record_this_check_slot", &game.RecordThisCheckStep{})
 	chainCtx, err := chain.Run(r.gameState, r.gameState.CurrentShooterDeviceIDHash(), shotPayload.Result)
 	if err != nil {
 		slog.Warn("ConsequenceChain failed", "code", r.code, "error", err)
@@ -758,6 +759,9 @@ func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
 		CascadeProfile:        chainCtx.CascadeProfile,
 		IsTriplePoints:        result.IsTriplePoints,
 		TriplePointsActivated: chainCtx.TriplePointsActivated,
+		RecordThis:            chainCtx.RecordThis,
+		RecordThisSubtext:     chainCtx.RecordThisSubtext,
+		RecordThisTargetHash:  chainCtx.TargetPlayerHash,
 	})
 	if err != nil {
 		slog.Error("failed to marshal turn_complete", "code", r.code, "error", err)

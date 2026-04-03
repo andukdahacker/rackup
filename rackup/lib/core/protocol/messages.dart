@@ -345,6 +345,9 @@ class TurnCompletePayload {
     this.cascadeProfile = 'routine',
     this.isTriplePoints = false,
     this.triplePointsActivated = false,
+    this.recordThis = false,
+    this.recordThisSubtext = '',
+    this.recordThisTargetHash = '',
   });
 
   /// Creates from JSON map.
@@ -371,6 +374,9 @@ class TurnCompletePayload {
       cascadeProfile: json['cascadeProfile'] as String? ?? 'routine',
       isTriplePoints: json['isTriplePoints'] as bool? ?? false,
       triplePointsActivated: json['triplePointsActivated'] as bool? ?? false,
+      recordThis: json['recordThis'] as bool? ?? false,
+      recordThisSubtext: json['recordThisSubtext'] as String? ?? '',
+      recordThisTargetHash: json['recordThisTargetHash'] as String? ?? '',
     );
   }
 
@@ -415,6 +421,15 @@ class TurnCompletePayload {
 
   /// Whether triple points just activated this turn (fires once).
   final bool triplePointsActivated;
+
+  /// Whether a RECORD THIS moment was detected.
+  final bool recordThis;
+
+  /// Descriptive text for the RECORD THIS alert.
+  final String recordThisSubtext;
+
+  /// Device ID hash of the player to exclude from the alert.
+  final String recordThisTargetHash;
 }
 
 /// Wire payload for a single leaderboard entry.

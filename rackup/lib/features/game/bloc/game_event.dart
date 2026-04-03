@@ -148,3 +148,25 @@ class LeaderboardEntry extends Equatable {
 class GameEndReceived extends GameEvent {
   const GameEndReceived();
 }
+
+/// A "RECORD THIS" moment was detected by the server.
+class RecordThisReceived extends GameEvent {
+  const RecordThisReceived({
+    required this.subtext,
+    required this.targetHash,
+  });
+
+  /// Descriptive text for the alert overlay.
+  final String subtext;
+
+  /// Device ID hash of the target player (excluded from alert).
+  final String targetHash;
+
+  @override
+  List<Object?> get props => [subtext, targetHash];
+}
+
+/// Resets the RECORD THIS overlay flag after it dismisses.
+class RecordThisDismissed extends GameEvent {
+  const RecordThisDismissed();
+}

@@ -106,6 +106,8 @@ class _RoomShellState extends State<_RoomShell> {
         gameBloc: _gameBloc,
         leaderboardBloc: _leaderboardBloc,
         eventFeedCubit: _eventFeedCubit,
+        localDeviceIdHash:
+            context.read<DeviceIdentityService>().getHashedDeviceId(),
       );
       _blocCreated = true;
     }

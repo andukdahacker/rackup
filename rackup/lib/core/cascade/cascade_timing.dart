@@ -15,7 +15,7 @@ class CascadeTiming {
       // Future profiles with placeholder durations.
       'item_punishment' => const Duration(milliseconds: 1000),
       'spicy' => const Duration(milliseconds: 1200),
-      'record_this' => const Duration(milliseconds: 1500),
+      'record_this' => const Duration(milliseconds: 4000),
       _ => Duration.zero,
     };
   }
