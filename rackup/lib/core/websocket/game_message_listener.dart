@@ -5,6 +5,8 @@ import 'package:rackup/core/protocol/actions.dart';
 import 'package:rackup/core/protocol/mapper.dart';
 import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
+import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
+import 'package:rackup/features/game/bloc/event_feed_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
@@ -21,8 +23,9 @@ class GameMessageListener {
     required WebSocketCubit webSocketCubit,
     required GameBloc gameBloc,
     required LeaderboardBloc leaderboardBloc,
+    required EventFeedCubit eventFeedCubit,
   }) : _subscription = webSocketCubit.messages.listen((message) {
-          _handleMessage(message, gameBloc, leaderboardBloc);
+          _handleMessage(message, gameBloc, leaderboardBloc, eventFeedCubit);
         });
 
   final StreamSubscription<Message> _subscription;
@@ -31,6 +34,7 @@ class GameMessageListener {
     Message message,
     GameBloc gameBloc,
     LeaderboardBloc leaderboardBloc,
+    EventFeedCubit eventFeedCubit,
   ) {
     try {
       switch (message.action) {
@@ -77,6 +81,14 @@ class GameMessageListener {
             cascadeProfile: payload.cascadeProfile,
           ));
 
+          // Generate event feed items from turn result.
+          _generateEventFeedItems(payload, eventFeedCubit);
+
+        case Actions.gameEnded:
+          // Safety net: server sends game.game_ended after game.turn_complete.
+          // GameBloc may already be in GameEnded state from isGameOver flag.
+          gameBloc.add(const GameEndReceived());
+
         default:
           break;
       }
@@ -87,6 +99,84 @@ class GameMessageListener {
         return true;
       }());
     }
+  }
+
+  /// Generates event feed items from a turn complete payload.
+  static void _generateEventFeedItems(
+    TurnCompletePayload payload,
+    EventFeedCubit eventFeedCubit,
+  ) {
+    final now = DateTime.now();
+
+    // Resolve shooter display name from leaderboard.
+    var shooterName = 'Player';
+    for (final entry in payload.leaderboard) {
+      if (entry.deviceIdHash == payload.shooterHash) {
+        shooterName = entry.displayName;
+        break;
+      }
+    }
+
+    // 1. Score event (always).
+    if (payload.result == 'made') {
+      final ptsText = payload.isTriplePoints
+          ? '+${payload.pointsAwarded} (3X)'
+          : '+${payload.pointsAwarded}';
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'score-${now.microsecondsSinceEpoch}',
+        text: '$shooterName scored $ptsText',
+        category: EventFeedCategory.score,
+        timestamp: now,
+      ));
+    } else {
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'score-${now.microsecondsSinceEpoch}',
+        text: '$shooterName missed',
+        category: EventFeedCategory.score,
+        timestamp: now,
+      ));
+    }
+
+    // 2. Streak event (if milestone).
+    if (payload.streakMilestone) {
+      final streakText = switch (payload.streakLabel) {
+        'warming_up' => '$shooterName is warming up',
+        'on_fire' => '$shooterName is ON FIRE 🔥',
+        'unstoppable' => '$shooterName is UNSTOPPABLE 💪',
+        _ => '$shooterName is on a streak',
+      };
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'streak-${now.microsecondsSinceEpoch}',
+        text: streakText,
+        category: EventFeedCategory.streak,
+        timestamp: now,
+      ));
+    }
+
+    // 3. Triple points activated (if just activated this turn).
+    if (payload.triplePointsActivated) {
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'triple-${now.microsecondsSinceEpoch}',
+        text: 'TRIPLE POINTS! All scores 3X',
+        category: EventFeedCategory.system,
+        timestamp: now,
+      ));
+    }
+
+    // 4. Game over.
+    if (payload.isGameOver) {
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'gameover-${now.microsecondsSinceEpoch}',
+        text: 'GAME OVER',
+        category: EventFeedCategory.system,
+        timestamp: now,
+      ));
+    }
+
+    // Extension points for future event sources:
+    // - Item deployments (Epic 5): EventFeedCategory.item
+    // - Punishment reveals (Epic 4): EventFeedCategory.punishment
+    // - Mission completions (Epic 6): EventFeedCategory.mission
   }
 
   /// Cancels the message subscription.

@@ -6,6 +6,8 @@ import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/websocket/game_message_listener.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/core/websocket/web_socket_state.dart';
+import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
+import 'package:rackup/features/game/bloc/event_feed_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
@@ -34,14 +36,17 @@ void main() {
     late MockWebSocketCubit mockWsCubit;
     late GameBloc gameBloc;
     late LeaderboardBloc leaderboardBloc;
+    late EventFeedCubit eventFeedCubit;
 
     setUp(() {
       mockWsCubit = MockWebSocketCubit();
       gameBloc = GameBloc();
       leaderboardBloc = LeaderboardBloc();
+      eventFeedCubit = EventFeedCubit();
     });
 
     tearDown(() {
+      eventFeedCubit.close();
       leaderboardBloc.close();
       gameBloc.close();
       mockWsCubit.disposeController();
@@ -53,6 +58,7 @@ void main() {
         webSocketCubit: mockWsCubit,
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -111,6 +117,7 @@ void main() {
         webSocketCubit: mockWsCubit,
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -180,6 +187,7 @@ void main() {
         webSocketCubit: mockWsCubit,
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
       );
 
       mockWsCubit.emitMessage(Message(
@@ -224,6 +232,7 @@ void main() {
         webSocketCubit: mockWsCubit,
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
       );
 
       // Send malformed payload.
@@ -236,6 +245,246 @@ void main() {
 
       // State should still be initial (not crash).
       expect(gameBloc.state, isA<GameInitial>());
+
+      listener.dispose();
+    });
+
+    test('gameTurnComplete generates score event feed item for made shot',
+        () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'made',
+          'pointsAwarded': 3,
+          'newScore': 3,
+          'newStreak': 1,
+          'currentShooterHash': 'hash-a',
+          'currentRound': 1,
+          'isGameOver': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 3,
+              'streak': 1,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'routine',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(eventFeedCubit.state.events, hasLength(1));
+      expect(eventFeedCubit.state.events.first.text, contains('Alice scored'));
+      expect(eventFeedCubit.state.events.first.category,
+          EventFeedCategory.score);
+
+      listener.dispose();
+    });
+
+    test('gameTurnComplete generates missed event for missed shot', () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'missed',
+          'pointsAwarded': 0,
+          'newScore': 0,
+          'newStreak': 0,
+          'currentShooterHash': 'hash-a',
+          'currentRound': 1,
+          'isGameOver': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Bob',
+              'score': 0,
+              'streak': 0,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'routine',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(eventFeedCubit.state.events.first.text, 'Bob missed');
+
+      listener.dispose();
+    });
+
+    test('gameTurnComplete generates streak event on milestone', () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'made',
+          'pointsAwarded': 4,
+          'newScore': 7,
+          'newStreak': 3,
+          'currentShooterHash': 'hash-a',
+          'currentRound': 1,
+          'isGameOver': false,
+          'streakLabel': 'on_fire',
+          'streakMilestone': true,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 7,
+              'streak': 3,
+              'rank': 1,
+              'streakLabel': 'on_fire',
+            },
+          ],
+          'cascadeProfile': 'streak_milestone',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // Should have score + streak events.
+      expect(eventFeedCubit.state.events.length, 2);
+      final streakEvent = eventFeedCubit.state.events.first;
+      expect(streakEvent.text, contains('ON FIRE'));
+      expect(streakEvent.category, EventFeedCategory.streak);
+
+      listener.dispose();
+    });
+
+    test('gameTurnComplete generates game over event', () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'made',
+          'pointsAwarded': 3,
+          'newScore': 30,
+          'newStreak': 1,
+          'currentShooterHash': 'hash-a',
+          'currentRound': 10,
+          'isGameOver': true,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 30,
+              'streak': 1,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'routine',
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // Should have score + game over events.
+      expect(eventFeedCubit.state.events.length, 2);
+      final gameOverEvent = eventFeedCubit.state.events.first;
+      expect(gameOverEvent.text, 'GAME OVER');
+      expect(gameOverEvent.category, EventFeedCategory.system);
+
+      listener.dispose();
+    });
+
+    test('game.game_ended dispatches GameEndReceived', () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+      );
+
+      mockWsCubit.emitMessage(const Message(
+        action: 'game.game_ended',
+        payload: {'gameOver': true},
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // GameEndReceived should transition GameActive to GameEnded.
+      expect(gameBloc.state, isA<GameEnded>());
 
       listener.dispose();
     });

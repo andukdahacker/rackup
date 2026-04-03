@@ -7,6 +7,7 @@ import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/widgets/player_name_tag.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
+import 'package:rackup/features/game/view/widgets/event_feed_widget.dart';
 import 'package:rackup/features/game/view/widgets/leaderboard_row.dart';
 import 'package:rackup/features/game/view/widgets/progress_tier_bar.dart';
 
@@ -61,15 +62,6 @@ class PlayerScreen extends StatelessWidget {
       }
     }
 
-    // Find current shooter's display name.
-    String? currentShooterName;
-    for (final p in players) {
-      if (p.deviceIdHash == currentShooterDeviceIdHash) {
-        currentShooterName = p.displayName;
-        break;
-      }
-    }
-
     final themeData = RackUpGameTheme.maybeOf(context);
     final bgColor = themeData?.backgroundColor ?? RackUpColors.canvas;
     final transitionDuration =
@@ -112,22 +104,9 @@ class PlayerScreen extends StatelessWidget {
               ),
             ),
             // Event Feed (~25%).
-            Expanded(
+            const Expanded(
               flex: 25,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                alignment: Alignment.topLeft,
-                child: Text(
-                  currentShooterName != null
-                      ? "It's $currentShooterName's turn"
-                      : 'Game started!',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: RackUpColors.textSecondary,
-                  ),
-                  textScaler: ClampedTextScaler.of(context, TextRole.body),
-                ),
-              ),
+              child: EventFeedWidget(),
             ),
             // My Status (~15%).
             Expanded(

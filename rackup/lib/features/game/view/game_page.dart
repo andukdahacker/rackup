@@ -31,6 +31,7 @@ class _GamePageState extends State<GamePage> {
   bool _overlayDismissed = false;
   bool _triplePointsShown = false;
   bool _triplePointsOverlayVisible = false;
+  NavigatorState? _triplePointsNavigator;
   late final SoundManager _soundManager;
   late final WakeLockManager _wakeLockManager;
 
@@ -72,42 +73,62 @@ class _GamePageState extends State<GamePage> {
       canPop: false,
       child: AudioListener(
         soundManager: _soundManager,
-        child: BlocListener<GameBloc, GameState>(
-        listenWhen: (prev, curr) {
-          if (prev is! GameActive || curr is! GameActive) return false;
-          // Trigger overlay on activation (P1: reset flag when undo
-          // reverts past triple boundary so it can re-fire).
-          if (prev.isTriplePoints && !curr.isTriplePoints) {
-            return true; // handled in listener to reset flag
-          }
-          return !prev.isTriplePoints && curr.isTriplePoints;
-        },
-        listener: (context, state) {
-          final active = state as GameActive;
-          // P1: Reset shown flag when triple points deactivates (undo).
-          if (!active.isTriplePoints) {
-            _triplePointsShown = false;
-            return;
-          }
-          if (_triplePointsShown) return;
-          _triplePointsShown = true;
-          _triplePointsOverlayVisible = true;
-          showGeneralDialog(
-            context: context,
-            barrierDismissible: false,
-            barrierColor: Colors.transparent,
-            pageBuilder: (dialogContext, __, ___) => TriplePointsOverlay(
-              onDismissed: () {
+        child: MultiBlocListener(
+        listeners: [
+          BlocListener<GameBloc, GameState>(
+            listenWhen: (prev, curr) {
+              if (prev is! GameActive || curr is! GameActive) return false;
+              if (prev.isTriplePoints && !curr.isTriplePoints) {
+                return true;
+              }
+              return !prev.isTriplePoints && curr.isTriplePoints;
+            },
+            listener: (context, state) {
+              final active = state as GameActive;
+              if (!active.isTriplePoints) {
+                _triplePointsShown = false;
+                return;
+              }
+              if (_triplePointsShown) return;
+              _triplePointsShown = true;
+              _triplePointsOverlayVisible = true;
+              showGeneralDialog(
+                context: context,
+                barrierDismissible: false,
+                barrierColor: Colors.transparent,
+                pageBuilder: (dialogContext, __, ___) {
+                  _triplePointsNavigator = Navigator.of(dialogContext);
+                  return TriplePointsOverlay(
+                    onDismissed: () {
+                      _triplePointsOverlayVisible = false;
+                      _triplePointsNavigator = null;
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                    },
+                  );
+                },
+              );
+            },
+          ),
+          BlocListener<GameBloc, GameState>(
+            listenWhen: (prev, curr) => curr is GameEnded,
+            listener: (context, state) {
+              unawaited(_wakeLockManager.disable());
+              if (_triplePointsOverlayVisible) {
+                _triplePointsNavigator?.pop();
+                _triplePointsNavigator = null;
                 _triplePointsOverlayVisible = false;
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                }
-              },
-            ),
-          );
-        },
+              }
+            },
+          ),
+        ],
         child: BlocBuilder<GameBloc, GameState>(
           builder: (context, state) {
+          if (state is GameEnded) {
+            return _buildGameOverScreen(state);
+          }
+
           if (state is! GameActive) {
             return const Scaffold(
               backgroundColor: RackUpColors.canvas,
@@ -138,10 +159,6 @@ class _GamePageState extends State<GamePage> {
           },
         ),
       ),
-      // Defense-in-depth: Also disable wake lock when GameBloc emits a
-      // terminal state (game ended/left). Currently no terminal state exists
-      // (GameEnded comes in Epic 8). Wire _wakeLockManager.disable() here
-      // when that state is added.
       ),
     );
   }
@@ -187,6 +204,81 @@ class _GamePageState extends State<GamePage> {
       currentShooterDeviceIdHash: state.currentShooterDeviceIdHash,
       leaderboardBloc: context.read<LeaderboardBloc>(),
       isTriplePoints: state.isTriplePoints,
+    );
+  }
+
+  /// Placeholder game-over screen. Epic 8 replaces with full ceremony.
+  Widget _buildGameOverScreen(GameEnded state) {
+    final sorted = List.of(state.players)
+      ..sort((a, b) => b.score.compareTo(a.score));
+
+    return Scaffold(
+      backgroundColor: RackUpColors.canvas,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 48),
+            const Text(
+              'GAME OVER',
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontWeight: FontWeight.bold,
+                fontSize: 48,
+                color: Color(0xFFFFD700),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Expanded(
+              child: ListView.builder(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                itemCount: sorted.length,
+                itemBuilder: (context, index) {
+                  final player = sorted[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 32,
+                          child: Text(
+                            '#${index + 1}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: index == 0
+                                  ? const Color(0xFFFFD700)
+                                  : RackUpColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            player.displayName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: RackUpColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${player.score}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: RackUpColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

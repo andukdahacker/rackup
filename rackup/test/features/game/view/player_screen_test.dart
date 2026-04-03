@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/widgets/player_name_tag.dart';
+import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_event.dart';
 import 'package:rackup/features/game/view/player_screen.dart';
+import 'package:rackup/features/game/view/widgets/event_feed_widget.dart';
 import 'package:rackup/features/game/view/widgets/leaderboard_row.dart';
 
 import '../../../helpers/helpers.dart';
@@ -34,20 +37,31 @@ void main() {
     ];
 
     late LeaderboardBloc leaderboardBloc;
+    late EventFeedCubit eventFeedCubit;
 
     setUp(() {
       leaderboardBloc = LeaderboardBloc();
+      eventFeedCubit = EventFeedCubit();
     });
 
     tearDown(() {
       leaderboardBloc.close();
+      eventFeedCubit.close();
     });
+
+    /// Wraps a widget with the required [EventFeedCubit] provider.
+    Widget wrapWithFeedCubit(Widget child) {
+      return BlocProvider<EventFeedCubit>.value(
+        value: eventFeedCubit,
+        child: child,
+      );
+    }
 
     testWidgets(
         'renders all 4 regions with correct content, self-row highlighted',
         (tester) async {
       await tester.pumpApp(
-        PlayerScreen(
+        wrapWithFeedCubit(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -55,7 +69,7 @@ void main() {
           myDeviceIdHash: 'hash-a',
           currentShooterDeviceIdHash: 'hash-a',
           leaderboardBloc: leaderboardBloc,
-        ),
+        )),
       );
 
       // Header: ProgressTierBar.
@@ -86,10 +100,9 @@ void main() {
       expect(bobTag.first.tagState, PlayerNameTagState.normal);
     });
 
-    testWidgets('shows turn indicator text for current shooter',
-        (tester) async {
+    testWidgets('EventFeedWidget is in the widget tree', (tester) async {
       await tester.pumpApp(
-        PlayerScreen(
+        wrapWithFeedCubit(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -97,16 +110,15 @@ void main() {
           myDeviceIdHash: 'hash-b',
           currentShooterDeviceIdHash: 'hash-a',
           leaderboardBloc: leaderboardBloc,
-        ),
+        )),
       );
 
-      // Event feed shows current shooter turn indicator.
-      expect(find.text("It's Alice's turn"), findsOneWidget);
+      expect(find.byType(EventFeedWidget), findsOneWidget);
     });
 
     testWidgets('leaderboard sorts by score descending', (tester) async {
       await tester.pumpApp(
-        PlayerScreen(
+        wrapWithFeedCubit(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -114,7 +126,7 @@ void main() {
           myDeviceIdHash: 'hash-b',
           currentShooterDeviceIdHash: 'hash-a',
           leaderboardBloc: leaderboardBloc,
-        ),
+        )),
       );
 
       // Alice (score 10) should appear before Bob (score 5).
@@ -128,7 +140,7 @@ void main() {
     testWidgets('shows streak indicator in My Status when streak > 0',
         (tester) async {
       await tester.pumpApp(
-        PlayerScreen(
+        wrapWithFeedCubit(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -136,7 +148,7 @@ void main() {
           myDeviceIdHash: 'hash-a',
           currentShooterDeviceIdHash: 'hash-b',
           leaderboardBloc: leaderboardBloc,
-        ),
+        )),
       );
 
       // Alice has streak=2, should show "2x".
@@ -172,7 +184,7 @@ void main() {
       ));
 
       await tester.pumpApp(
-        PlayerScreen(
+        wrapWithFeedCubit(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -180,7 +192,7 @@ void main() {
           myDeviceIdHash: 'hash-a',
           currentShooterDeviceIdHash: 'hash-a',
           leaderboardBloc: leaderboardBloc,
-        ),
+        )),
       );
       await tester.pump();
 
@@ -235,7 +247,7 @@ void main() {
       ));
 
       await tester.pumpApp(
-        PlayerScreen(
+        wrapWithFeedCubit(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -243,7 +255,7 @@ void main() {
           myDeviceIdHash: 'hash-a',
           currentShooterDeviceIdHash: 'hash-a',
           leaderboardBloc: leaderboardBloc,
-        ),
+        )),
       );
       await tester.pump();
 
@@ -357,7 +369,7 @@ void main() {
       ));
 
       await tester.pumpApp(
-        PlayerScreen(
+        wrapWithFeedCubit(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -365,7 +377,7 @@ void main() {
           myDeviceIdHash: 'hash-b',
           currentShooterDeviceIdHash: 'hash-a',
           leaderboardBloc: leaderboardBloc,
-        ),
+        )),
       );
       await tester.pump();
 
@@ -421,14 +433,17 @@ void main() {
                 backgroundColor: RackUpColors.tierMild,
                 animationsEnabled: false,
               ),
-              child: PlayerScreen(
-                currentRound: 1,
-                totalRounds: 10,
-                tier: EscalationTier.mild,
-                players: testPlayers,
-                myDeviceIdHash: 'hash-a',
-                currentShooterDeviceIdHash: 'hash-a',
-                leaderboardBloc: leaderboardBloc,
+              child: BlocProvider<EventFeedCubit>.value(
+                value: eventFeedCubit,
+                child: PlayerScreen(
+                  currentRound: 1,
+                  totalRounds: 10,
+                  tier: EscalationTier.mild,
+                  players: testPlayers,
+                  myDeviceIdHash: 'hash-a',
+                  currentShooterDeviceIdHash: 'hash-a',
+                  leaderboardBloc: leaderboardBloc,
+                ),
               ),
             ),
           ),

@@ -36,6 +36,8 @@
 
 generated: 2026-03-23
 last_updated: 2026-04-03
+# Story 3-7 marked done: 2026-04-03
+# Story 3-7 context created: 2026-04-03
 # Story 3-6 marked done: 2026-04-03
 # Story 3-6 dev completed: 2026-04-03
 # Story 3-6 context created: 2026-04-03
@@ -104,7 +106,7 @@ development_status:
   3-4-live-leaderboard: done
   3-5-game-progression-and-triple-points: done
   3-6-sound-effects-and-screen-awake: done
-  3-7-event-feed-and-game-end: backlog
+  3-7-event-feed-and-game-end: done
   3-8-record-this-moments: backlog
   epic-3-retrospective: optional
 

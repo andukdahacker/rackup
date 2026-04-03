@@ -9,6 +9,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   GameBloc() : super(const GameInitial()) {
     on<GameInitialized>(_onGameInitialized);
     on<GameTurnCompleted>(_onGameTurnCompleted);
+    on<GameEndReceived>(_onGameEndReceived);
   }
 
   void _onGameInitialized(
@@ -52,13 +53,36 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
     final tier = computeTier(event.currentRound, current.roundCount);
 
+    if (event.isGameOver) {
+      emit(GameEnded(
+        players: updatedPlayers,
+        roundCount: current.roundCount,
+        refereeDeviceIdHash: current.refereeDeviceIdHash,
+      ));
+      return;
+    }
+
     emit(current.copyWith(
       currentShooterDeviceIdHash: event.currentShooterHash,
       currentRound: event.currentRound,
       players: updatedPlayers,
       tier: tier,
-      // Don't activate triple points on game-ending turns (P4).
-      isTriplePoints: event.isGameOver ? false : event.isTriplePoints,
+      isTriplePoints: event.isTriplePoints,
     ));
+  }
+
+  void _onGameEndReceived(
+    GameEndReceived event,
+    Emitter<GameState> emit,
+  ) {
+    final current = state;
+    if (current is GameEnded) return; // Already in terminal state.
+    if (current is GameActive) {
+      emit(GameEnded(
+        players: current.players,
+        roundCount: current.roundCount,
+        refereeDeviceIdHash: current.refereeDeviceIdHash,
+      ));
+    }
   }
 }

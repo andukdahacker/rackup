@@ -16,6 +16,7 @@ import 'package:rackup/core/websocket/web_socket_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
+import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/game_page.dart';
 import 'package:rackup/l10n/l10n.dart';
@@ -105,6 +106,7 @@ Widget _buildTestWidget({
           BlocProvider<GameBloc>.value(value: gameBloc),
           BlocProvider<WebSocketCubit>.value(value: webSocketCubit),
           BlocProvider<LeaderboardBloc>(create: (_) => LeaderboardBloc()),
+          BlocProvider<EventFeedCubit>(create: (_) => EventFeedCubit()),
         ],
         child: Builder(
           builder: (context) {
@@ -172,7 +174,6 @@ void main() {
       ));
 
       // Player screen should show.
-      expect(find.text("It's Alice's turn"), findsOneWidget);
       expect(find.text('No items'), findsOneWidget);
       // No overlay.
       expect(find.text("YOU'RE THE REFEREE NOW"), findsNothing);
@@ -192,6 +193,27 @@ void main() {
       // Verify PopScope prevents back navigation.
       final popScope = tester.widget<PopScope>(find.byType(PopScope));
       expect(popScope.canPop, isFalse);
+    });
+
+    testWidgets('GameEnded state shows game over screen', (tester) async {
+      when(() => mockDeviceIdentity.getHashedDeviceId())
+          .thenReturn('hash-a');
+      when(() => mockGameBloc.state).thenReturn(const GameEnded(
+        players: _testPlayers,
+        roundCount: 10,
+        refereeDeviceIdHash: 'hash-b',
+      ));
+
+      await tester.pumpWidget(_buildTestWidget(
+        gameBloc: mockGameBloc,
+        deviceIdentityService: mockDeviceIdentity,
+        webSocketCubit: mockWsCubit,
+      ));
+
+      expect(find.text('GAME OVER'), findsOneWidget);
+      // Players should be listed.
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Bob'), findsOneWidget);
     });
   });
 }

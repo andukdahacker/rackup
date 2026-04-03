@@ -143,3 +143,8 @@ class LeaderboardEntry extends Equatable {
   List<Object?> get props =>
       [deviceIdHash, displayName, score, streak, streakLabel, rank, rankChanged];
 }
+
+/// Game end confirmation received from server (safety net).
+class GameEndReceived extends GameEvent {
+  const GameEndReceived();
+}

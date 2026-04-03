@@ -88,3 +88,24 @@ class GameActive extends GameState {
         isTriplePoints,
       ];
 }
+
+/// Terminal state — game has ended. No more transitions to [GameActive].
+class GameEnded extends GameState {
+  const GameEnded({
+    required this.players,
+    required this.roundCount,
+    required this.refereeDeviceIdHash,
+  });
+
+  /// All players with their final scores.
+  final List<GamePlayer> players;
+
+  /// Total number of rounds played.
+  final int roundCount;
+
+  /// The referee's device ID hash.
+  final String refereeDeviceIdHash;
+
+  @override
+  List<Object?> get props => [players, roundCount, refereeDeviceIdHash];
+}
