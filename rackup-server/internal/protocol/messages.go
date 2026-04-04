@@ -119,6 +119,26 @@ type LeaderboardEntry struct {
 	RankChanged  bool   `json:"rankChanged"`
 }
 
+// ItemDeployPayload is the client→server payload for item.deploy.
+type ItemDeployPayload struct {
+	Item     string `json:"item"`
+	TargetID string `json:"targetId,omitempty"`
+}
+
+// ItemDeployedPayload is the server→client payload for item.deployed (broadcast).
+type ItemDeployedPayload struct {
+	Item        string             `json:"item"`
+	DeployerID  string             `json:"deployerId"`
+	TargetID    string             `json:"targetId,omitempty"`
+	Leaderboard []LeaderboardEntry `json:"leaderboard"`
+}
+
+// ItemFizzledPayload is the server→client payload for item.fizzled (deployer only).
+type ItemFizzledPayload struct {
+	Item   string `json:"item"`
+	Reason string `json:"reason"`
+}
+
 // ErrorPayload is the payload for action "error".
 type ErrorPayload struct {
 	Code    string `json:"code"`

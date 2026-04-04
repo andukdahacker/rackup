@@ -16,7 +16,28 @@ class ItemReceived extends ItemEvent {
   final Item? replacedItem;
 }
 
-/// The held item was cleared (deployment in Story 5.2).
+/// The held item was cleared (fallback/undo).
 class ItemCleared extends ItemEvent {
   const ItemCleared();
+}
+
+/// User deploys the held item (imperative naming per convention).
+class DeployItem extends ItemEvent {
+  const DeployItem({this.targetId});
+
+  /// Device ID hash of the target player. Null for non-targeted items.
+  final String? targetId;
+}
+
+/// Server confirmed the item deployment.
+class ItemDeployConfirmed extends ItemEvent {
+  const ItemDeployConfirmed();
+}
+
+/// Server rejected the item deployment.
+class ItemDeployRejected extends ItemEvent {
+  const ItemDeployRejected({required this.reason});
+
+  /// Reason code (e.g., "ITEM_CONSUMED", "INVALID_TARGET").
+  final String reason;
 }

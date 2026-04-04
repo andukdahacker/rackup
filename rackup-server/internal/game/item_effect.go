@@ -18,23 +18,24 @@ const (
 
 // ItemMeta holds display metadata for an item type.
 type ItemMeta struct {
-	Name        string
-	Description string
-	AccentColor string // hex color
+	Name           string
+	Description    string
+	AccentColor    string // hex color
+	RequiresTarget bool   // true if item needs a target player on deploy
 }
 
 // ItemRegistry maps item type strings to display metadata.
 var ItemRegistry = map[string]ItemMeta{
-	ItemBlueshell:    {Name: "Blue Shell", Description: "Targets 1st place automatically", AccentColor: "#3B82F6"},
-	ItemShield:       {Name: "Shield", Description: "Blocks one incoming item", AccentColor: "#14B8A6"},
-	ItemScoreSteal:   {Name: "Score Steal", Description: "Steal points from a target", AccentColor: "#FF6B6B"},
-	ItemStreakBreaker: {Name: "Streak Breaker", Description: "Break a target's streak", AccentColor: "#F97316"},
-	ItemDoubleUp:     {Name: "Double Up", Description: "Double your next score", AccentColor: "#FFD700"},
-	ItemTrapCard:     {Name: "Trap Card", Description: "Delayed trap for next miss", AccentColor: "#DC2626"},
-	ItemReverse:      {Name: "Reverse", Description: "Reverse the turn order", AccentColor: "#8B5CF6"},
-	ItemImmunity:     {Name: "Immunity", Description: "Block the next punishment", AccentColor: "#10B981"},
-	ItemMulligan:     {Name: "Mulligan", Description: "Group vote to redo a shot", AccentColor: "#60A5FA"},
-	ItemWildcard:     {Name: "Wildcard", Description: "Create a custom rule", AccentColor: "#EAB308"},
+	ItemBlueshell:    {Name: "Blue Shell", Description: "Targets 1st place automatically", AccentColor: "#3B82F6", RequiresTarget: true},
+	ItemShield:       {Name: "Shield", Description: "Blocks one incoming item", AccentColor: "#14B8A6", RequiresTarget: false},
+	ItemScoreSteal:   {Name: "Score Steal", Description: "Steal points from a target", AccentColor: "#FF6B6B", RequiresTarget: true},
+	ItemStreakBreaker: {Name: "Streak Breaker", Description: "Break a target's streak", AccentColor: "#F97316", RequiresTarget: true},
+	ItemDoubleUp:     {Name: "Double Up", Description: "Double your next score", AccentColor: "#FFD700", RequiresTarget: false},
+	ItemTrapCard:     {Name: "Trap Card", Description: "Delayed trap for next miss", AccentColor: "#DC2626", RequiresTarget: false},
+	ItemReverse:      {Name: "Reverse", Description: "Reverse the turn order", AccentColor: "#8B5CF6", RequiresTarget: true},
+	ItemImmunity:     {Name: "Immunity", Description: "Block the next punishment", AccentColor: "#10B981", RequiresTarget: false},
+	ItemMulligan:     {Name: "Mulligan", Description: "Group vote to redo a shot", AccentColor: "#60A5FA", RequiresTarget: false},
+	ItemWildcard:     {Name: "Wildcard", Description: "Create a custom rule", AccentColor: "#EAB308", RequiresTarget: false},
 }
 
 // FullDeck contains all 10 item types.
@@ -54,6 +55,14 @@ type ItemEffect interface {
 	Execute(gs *GameState, userHash string, targetHash string) error
 	RequiresTarget() bool
 	RequiresVote() bool
+}
+
+// ItemRequiresTarget returns whether the given item type requires a target player on deployment.
+func ItemRequiresTarget(itemType string) bool {
+	if meta, ok := ItemRegistry[itemType]; ok {
+		return meta.RequiresTarget
+	}
+	return false
 }
 
 // DrawItem selects a random item from the appropriate deck based on player position.

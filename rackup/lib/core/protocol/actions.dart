@@ -38,6 +38,15 @@ abstract final class Actions {
   /// Game has ended (server→client).
   static const String gameEnded = 'game.game_ended';
 
+  /// Player deploys an item (client→server).
+  static const String itemDeploy = 'item.deploy';
+
+  /// Item deployment confirmed (server→client broadcast).
+  static const String itemDeployed = 'item.deployed';
+
+  /// Item deployment failed (server→client to deployer only).
+  static const String itemFizzled = 'item.fizzled';
+
   /// An error occurred.
   static const String error = 'error';
 }

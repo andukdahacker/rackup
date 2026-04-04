@@ -462,6 +462,10 @@ func (r *Room) handleClientMessage(deviceHash string, raw json.RawMessage) {
 		r.handleStartGame(deviceHash, msg.Payload)
 
 	default:
+		if strings.HasPrefix(msg.Action, "item.") {
+			r.handleItemAction(deviceHash, msg.Action, msg.Payload)
+			return
+		}
 		if strings.HasPrefix(msg.Action, "game.") || strings.HasPrefix(msg.Action, "referee.") {
 			r.handleGameAction(deviceHash, msg.Action, msg.Payload)
 			return
@@ -801,6 +805,140 @@ func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
 		Action:  protocol.ActionGameTurnComplete,
 		Payload: payload,
 	})
+}
+
+// handleItemAction routes item-namespaced actions. Acquires write lock since item deploy mutates GameState.
+func (r *Room) handleItemAction(deviceHash, action string, payload json.RawMessage) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Validate game is active.
+	if r.gameState == nil {
+		r.sendErrorToPlayerLocked(deviceHash, "GAME_NOT_STARTED", "Game has not started")
+		return
+	}
+	if r.gameState.GamePhase != game.PhasePlaying {
+		r.sendErrorToPlayerLocked(deviceHash, "GAME_NOT_PLAYING", "Game is not in playing phase")
+		return
+	}
+
+	player := r.gameState.Players[deviceHash]
+	if player == nil {
+		r.sendErrorToPlayerLocked(deviceHash, "NOT_IN_GAME", "Player not found in game")
+		return
+	}
+	if player.IsReferee {
+		r.sendErrorToPlayerLocked(deviceHash, "REFEREE_CANNOT_DEPLOY", "Referee cannot deploy items")
+		return
+	}
+	if player.HeldItem == nil {
+		r.sendItemFizzledLocked(deviceHash, "", "NO_ITEM_HELD")
+		return
+	}
+
+	switch action {
+	case protocol.ActionItemDeploy:
+		r.handleItemDeployLocked(deviceHash, player, payload)
+	default:
+		slog.Debug("unhandled item action", "code", r.code, "action", action)
+	}
+}
+
+// handleItemDeployLocked processes item.deploy. Must be called with r.mu held.
+func (r *Room) handleItemDeployLocked(deviceHash string, player *game.GamePlayer, raw json.RawMessage) {
+	var deployPayload protocol.ItemDeployPayload
+	if err := json.Unmarshal(raw, &deployPayload); err != nil {
+		slog.Warn("failed to parse item.deploy payload", "code", r.code, "error", err)
+		r.sendItemFizzledLocked(deviceHash, "", "INVALID_PAYLOAD")
+		return
+	}
+
+	// Validate item matches what the player holds.
+	if deployPayload.Item != *player.HeldItem {
+		r.sendItemFizzledLocked(deviceHash, deployPayload.Item, "ITEM_CONSUMED")
+		return
+	}
+
+	// Validate target if item requires one.
+	if game.ItemRequiresTarget(deployPayload.Item) {
+		if deployPayload.TargetID == "" {
+			r.sendItemFizzledLocked(deviceHash, deployPayload.Item, "INVALID_TARGET")
+			return
+		}
+		if deployPayload.TargetID == deviceHash {
+			r.sendItemFizzledLocked(deviceHash, deployPayload.Item, "INVALID_TARGET")
+			return
+		}
+		target := r.gameState.Players[deployPayload.TargetID]
+		if target == nil || target.IsReferee {
+			r.sendItemFizzledLocked(deviceHash, deployPayload.Item, "INVALID_TARGET")
+			return
+		}
+	}
+
+	// Clear spurious targetId for non-targeted items (P3).
+	if !game.ItemRequiresTarget(deployPayload.Item) {
+		deployPayload.TargetID = ""
+	}
+
+	// Consume the item.
+	player.ClearItem()
+
+	// Recalculate leaderboard (no score changes in 5.2, but provides current rankings).
+	gameLeaderboard := r.gameState.CalculateLeaderboard(nil)
+
+	// Convert to protocol leaderboard entries.
+	protoLeaderboard := make([]protocol.LeaderboardEntry, len(gameLeaderboard))
+	for i, entry := range gameLeaderboard {
+		protoLeaderboard[i] = protocol.LeaderboardEntry{
+			DeviceIDHash: entry.DeviceIDHash,
+			DisplayName:  entry.DisplayName,
+			Score:        entry.Score,
+			Streak:       entry.Streak,
+			StreakLabel:   entry.StreakLabel,
+			Rank:         entry.Rank,
+			RankChanged:  entry.RankChanged,
+		}
+	}
+
+	// Broadcast item.deployed to ALL players.
+	deployedPayload, err := json.Marshal(protocol.ItemDeployedPayload{
+		Item:        deployPayload.Item,
+		DeployerID:  deviceHash,
+		TargetID:    deployPayload.TargetID,
+		Leaderboard: protoLeaderboard,
+	})
+	if err != nil {
+		slog.Error("failed to marshal item.deployed", "code", r.code, "error", err)
+		return
+	}
+	r.broadcastLocked(protocol.Message{
+		Action:  protocol.ActionItemDeployed,
+		Payload: deployedPayload,
+	})
+}
+
+// sendItemFizzledLocked sends item.fizzled to a specific player. Must be called with r.mu held.
+func (r *Room) sendItemFizzledLocked(deviceHash, item, reason string) {
+	payload, err := json.Marshal(protocol.ItemFizzledPayload{
+		Item:   item,
+		Reason: reason,
+	})
+	if err != nil {
+		return
+	}
+	data, err := json.Marshal(protocol.Message{
+		Action:  protocol.ActionItemFizzled,
+		Payload: payload,
+	})
+	if err != nil {
+		return
+	}
+	if conn, ok := r.players[deviceHash]; ok {
+		if writeErr := conn.WriteMessage(data); writeErr != nil {
+			slog.Warn("failed to send item.fizzled to player", "code", r.code, "device", deviceHash, "error", writeErr)
+		}
+	}
 }
 
 // sendErrorToPlayerLocked sends an error message to a specific player.

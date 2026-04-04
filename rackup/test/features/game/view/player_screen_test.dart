@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
+import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/core/widgets/player_name_tag.dart';
 import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
@@ -15,6 +17,8 @@ import 'package:rackup/features/game/view/widgets/event_feed_widget.dart';
 import 'package:rackup/features/game/view/widgets/leaderboard_row.dart';
 
 import '../../../helpers/helpers.dart';
+
+class _MockWebSocketCubit extends Mock implements WebSocketCubit {}
 
 void main() {
   group('PlayerScreen', () {
@@ -44,7 +48,7 @@ void main() {
     setUp(() {
       leaderboardBloc = LeaderboardBloc();
       eventFeedCubit = EventFeedCubit();
-      itemBloc = ItemBloc();
+      itemBloc = ItemBloc(webSocketCubit: _MockWebSocketCubit());
     });
 
     tearDown(() {

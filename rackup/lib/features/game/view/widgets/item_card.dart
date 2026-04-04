@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rackup/core/models/item.dart';
+import 'package:rackup/core/services/device_identity_service.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
+import 'package:rackup/features/game/bloc/game_bloc.dart';
+import 'package:rackup/features/game/bloc/game_state.dart' as gs;
 import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_event.dart';
 import 'package:rackup/features/game/bloc/item_state.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
+import 'package:rackup/features/game/bloc/leaderboard_state.dart';
+import 'package:rackup/features/game/view/widgets/targeting_overlay.dart';
 
 /// Displays the player's held item or an empty placeholder.
 ///
@@ -18,17 +25,21 @@ class ItemCard extends StatefulWidget {
 }
 
 class _ItemCardState extends State<ItemCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+    with TickerProviderStateMixin {
+  late final AnimationController _revealController;
   late final Animation<double> _scaleAnimation;
+  late final AnimationController _deployController;
+  late final Animation<double> _deployGlow;
+  late final AnimationController _fizzleController;
+  late final Animation<double> _fizzleShake;
   bool _hasAnimated = false;
-  int _itemSequence = 0;
+  bool _isPressed = false;
 
   @override
   void initState() {
     super.initState();
     // The Reveal: 150ms anticipation (scale 0.95) + 250ms payoff (easeOutBack).
-    _controller = AnimationController(
+    _revealController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
@@ -42,17 +53,95 @@ class _ItemCardState extends State<ItemCard>
             .chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 62.5, // ~250ms payoff
       ),
-    ]).animate(_controller);
+    ]).animate(_revealController);
+
+    // Deploy: gold glow flash over 500ms.
+    _deployController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _deployGlow = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.4), weight: 60),
+    ]).animate(_deployController);
+
+    // Fizzle: quick shake over 400ms.
+    _fizzleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _fizzleShake = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 4.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 4.0, end: -4.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: -4.0, end: 3.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 3.0, end: -2.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: -2.0, end: 0.0), weight: 20),
+    ]).animate(_fizzleController);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _revealController.dispose();
+    _deployController.dispose();
+    _fizzleController.dispose();
     super.dispose();
   }
 
   void _playRevealAnimation() {
-    _controller.forward(from: 0.0);
+    _revealController.forward(from: 0.0);
+  }
+
+  void _onTapItem(BuildContext context, Item item) {
+    if (item.requiresTarget) {
+      _showTargeting(context, item);
+    } else {
+      context.read<ItemBloc>().add(const DeployItem());
+    }
+  }
+
+  Future<void> _showTargeting(BuildContext context, Item item) async {
+    final gameState = context.read<GameBloc>().state;
+    final lbState = context.read<LeaderboardBloc>().state;
+
+    if (gameState is! gs.GameActive || lbState is! LeaderboardActive) return;
+
+    // Build slot map from game players.
+    final playerSlots = <String, int>{};
+    for (final p in gameState.players) {
+      playerSlots[p.deviceIdHash] = p.slot;
+    }
+
+    // Get local device ID hash — the deployer is the non-referee player
+    // whose item is being deployed. Use identity service or infer from
+    // game state by matching the ItemBloc's held item.
+    final localHash = _getLocalDeviceIdHash();
+    if (localHash == null) return;
+
+    final targets = buildTargetList(
+      entries: lbState.entries,
+      localDeviceIdHash: localHash,
+      refereeDeviceIdHash: gameState.refereeDeviceIdHash,
+      playerSlots: playerSlots,
+    );
+
+    if (!context.mounted) return;
+    final selectedHash = await showTargetingOverlay(
+      context: context,
+      item: item,
+      targets: targets,
+    );
+
+    if (selectedHash != null && context.mounted) {
+      context.read<ItemBloc>().add(DeployItem(targetId: selectedHash));
+    }
+  }
+
+  String? _getLocalDeviceIdHash() {
+    try {
+      return context.read<DeviceIdentityService>().getHashedDeviceId();
+    } on Object {
+      return null;
+    }
   }
 
   @override
@@ -60,11 +149,15 @@ class _ItemCardState extends State<ItemCard>
     return BlocListener<ItemBloc, ItemState>(
       listener: (context, state) {
         if (state is ItemHeld) {
-          _itemSequence++;
           _playRevealAnimation();
           _hasAnimated = true;
         } else if (state is ItemEmpty) {
           _hasAnimated = false;
+          _isPressed = false;
+        } else if (state is ItemDeploying) {
+          _deployController.forward(from: 0.0);
+        } else if (state is ItemFizzled) {
+          _fizzleController.forward(from: 0.0);
         }
       },
       child: BlocBuilder<ItemBloc, ItemState>(
@@ -83,13 +176,47 @@ class _ItemCardState extends State<ItemCard>
                             child: child,
                           );
                         },
-                        child: _HeldCard(item: item),
+                        child: _buildHeldCard(context, item),
                       )
-                    : _HeldCard(item: item),
+                    : _buildHeldCard(context, item),
+              ItemDeploying(:final item) =>
+                AnimatedBuilder(
+                  animation: _deployGlow,
+                  builder: (context, child) {
+                    return child!;
+                  },
+                  child: _DeployingCard(
+                    item: item,
+                    glowAnimation: _deployGlow,
+                  ),
+                ),
+              ItemFizzled(:final item) =>
+                AnimatedBuilder(
+                  animation: _fizzleShake,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(_fizzleShake.value, 0),
+                      child: child,
+                    );
+                  },
+                  child: _FizzleCard(item: item),
+                ),
             },
           );
         },
       ),
+    );
+  }
+
+  Widget _buildHeldCard(BuildContext context, Item item) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        _onTapItem(context, item);
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: _HeldCard(item: item, isPressed: _isPressed),
     );
   }
 }
@@ -122,13 +249,18 @@ class _EmptyCard extends StatelessWidget {
 
 /// Held item card with icon, name, and "TAP TO DEPLOY" affordance.
 class _HeldCard extends StatelessWidget {
-  const _HeldCard({required this.item});
+  const _HeldCard({required this.item, this.isPressed = false});
 
   final Item item;
+  final bool isPressed;
 
   @override
   Widget build(BuildContext context) {
     final accentColor = item.accentColor;
+    final borderColor = isPressed
+        ? const Color(0xFFFFD700)
+        : RackUpColors.itemBlue;
+    final glowAlpha = isPressed ? 0.35 : 0.18;
 
     return Container(
       key: ValueKey('item-${item.type}'),
@@ -138,13 +270,13 @@ class _HeldCard extends StatelessWidget {
         color: RackUpColors.canvas,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: RackUpColors.itemBlue,
+          color: borderColor,
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: RackUpColors.itemBlue.withValues(alpha: 0.18),
-            blurRadius: 8,
+            color: borderColor.withValues(alpha: glowAlpha),
+            blurRadius: isPressed ? 12 : 8,
           ),
         ],
       ),
@@ -198,13 +330,106 @@ class _HeldCard extends StatelessWidget {
               ),
             ),
           ),
-          // Deploy arrow (visual affordance only in Story 5.1).
           const Icon(
             Icons.chevron_right,
             color: RackUpColors.textSecondary,
             size: 18,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Deploying state: gold glow flash (~500ms masking server latency).
+class _DeployingCard extends StatelessWidget {
+  const _DeployingCard({required this.item, required this.glowAnimation});
+
+  final Item item;
+  final Animation<double> glowAnimation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: glowAnimation,
+      builder: (context, _) {
+        final glowIntensity = glowAnimation.value;
+        return Container(
+          key: const ValueKey('item-deploying'),
+          width: 120,
+          height: 56,
+          decoration: BoxDecoration(
+            color: RackUpColors.canvas,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Color.lerp(
+                RackUpColors.itemBlue,
+                const Color(0xFFFFD700),
+                glowIntensity,
+              )!,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFFD700)
+                    .withValues(alpha: 0.3 * glowIntensity),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Center(
+            child: Text(
+              'DEPLOYING...',
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Color.lerp(
+                  RackUpColors.textPrimary,
+                  const Color(0xFFFFD700),
+                  glowIntensity,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Fizzle state: dim border, shake, then fade.
+class _FizzleCard extends StatelessWidget {
+  const _FizzleCard({required this.item});
+
+  final Item item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('item-fizzle'),
+      width: 120,
+      height: 56,
+      decoration: BoxDecoration(
+        color: RackUpColors.canvas,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: RackUpColors.textSecondary.withValues(alpha: 0.4),
+          width: 2,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: const Center(
+        child: Text(
+          'Fizzled!',
+          style: TextStyle(
+            fontFamily: 'Oswald',
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: RackUpColors.textSecondary,
+          ),
+        ),
       ),
     );
   }

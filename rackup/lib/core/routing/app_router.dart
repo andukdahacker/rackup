@@ -93,7 +93,7 @@ class _RoomShellState extends State<_RoomShell> {
     _wsCubit = WebSocketCubit();
     _gameBloc = GameBloc();
     _leaderboardBloc = LeaderboardBloc();
-    _itemBloc = ItemBloc();
+    _itemBloc = ItemBloc(webSocketCubit: _wsCubit);
     _eventFeedCubit = EventFeedCubit();
     _soundManager = SoundManager();
     unawaited(_soundManager.init());

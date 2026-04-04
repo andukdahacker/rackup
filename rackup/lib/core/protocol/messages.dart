@@ -559,6 +559,87 @@ class LeaderboardEntryPayload {
   final bool rankChanged;
 }
 
+/// Wire payload for client→server item.deploy.
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (ItemDeployPayload)
+class ItemDeployPayload {
+  /// Creates an [ItemDeployPayload].
+  const ItemDeployPayload({required this.item, this.targetId});
+
+  /// The item type key (e.g., "blue_shell").
+  final String item;
+
+  /// Device ID hash of the target player. Null for non-targeted items.
+  final String? targetId;
+
+  /// Converts to JSON map.
+  Map<String, dynamic> toJson() => {
+        'item': item,
+        if (targetId != null) 'targetId': targetId,
+      };
+}
+
+/// Wire payload for server→client item.deployed broadcast.
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (ItemDeployedPayload)
+class ItemDeployedPayload {
+  /// Creates an [ItemDeployedPayload].
+  const ItemDeployedPayload({
+    required this.item,
+    required this.deployerId,
+    this.targetId,
+    this.leaderboard = const [],
+  });
+
+  /// Creates from JSON map.
+  factory ItemDeployedPayload.fromJson(Map<String, dynamic> json) {
+    final leaderboardList = (json['leaderboard'] as List<dynamic>?)
+            ?.map(
+              (e) =>
+                  LeaderboardEntryPayload.fromJson(e as Map<String, dynamic>),
+            )
+            .toList() ??
+        const [];
+    return ItemDeployedPayload(
+      item: json['item'] as String,
+      deployerId: json['deployerId'] as String,
+      targetId: json['targetId'] as String?,
+      leaderboard: leaderboardList,
+    );
+  }
+
+  /// The item type key.
+  final String item;
+
+  /// Device ID hash of the deploying player.
+  final String deployerId;
+
+  /// Device ID hash of the target player. Null for non-targeted items.
+  final String? targetId;
+
+  /// Current leaderboard snapshot.
+  final List<LeaderboardEntryPayload> leaderboard;
+}
+
+/// Wire payload for server→client item.fizzled (deployer only).
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (ItemFizzledPayload)
+class ItemFizzledPayload {
+  /// Creates an [ItemFizzledPayload].
+  const ItemFizzledPayload({required this.item, required this.reason});
+
+  /// Creates from JSON map.
+  factory ItemFizzledPayload.fromJson(Map<String, dynamic> json) {
+    return ItemFizzledPayload(
+      item: json['item'] as String,
+      reason: json['reason'] as String,
+    );
+  }
+
+  /// The item type key.
+  final String item;
+
+  /// Reason code (e.g., "ITEM_CONSUMED", "INVALID_TARGET").
+  final String reason;
+}
+
 /// Error response payload.
 class ErrorResponse {
   /// Creates an [ErrorResponse].

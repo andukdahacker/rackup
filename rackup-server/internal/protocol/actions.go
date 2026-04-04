@@ -13,5 +13,8 @@ const (
 	ActionRefereeConfirmShot       = "referee.confirm_shot"
 	ActionRefereeUndoShot          = "referee.undo_shot"
 	ActionGameEnded                = "game.game_ended"
+	ActionItemDeploy               = "item.deploy"    // client→server: player deploys an item
+	ActionItemDeployed             = "item.deployed"  // server→client: broadcast item deployment
+	ActionItemFizzled              = "item.fizzled"   // server→client: deployment failed (to deployer only)
 	ActionError                    = "error"
 )

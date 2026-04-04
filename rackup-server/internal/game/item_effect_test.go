@@ -87,6 +87,55 @@ func TestDeckWithoutBlueshell_Has9Items(t *testing.T) {
 	}
 }
 
+func TestItemRequiresTarget_Targeted(t *testing.T) {
+	targeted := []string{ItemBlueshell, ItemScoreSteal, ItemStreakBreaker, ItemReverse}
+	for _, item := range targeted {
+		if !ItemRequiresTarget(item) {
+			t.Errorf("expected ItemRequiresTarget(%q) = true", item)
+		}
+	}
+}
+
+func TestItemRequiresTarget_NonTargeted(t *testing.T) {
+	nonTargeted := []string{ItemShield, ItemDoubleUp, ItemTrapCard, ItemImmunity, ItemMulligan, ItemWildcard}
+	for _, item := range nonTargeted {
+		if ItemRequiresTarget(item) {
+			t.Errorf("expected ItemRequiresTarget(%q) = false", item)
+		}
+	}
+}
+
+func TestItemRequiresTarget_UnknownItem(t *testing.T) {
+	if ItemRequiresTarget("unknown_item") {
+		t.Error("expected ItemRequiresTarget for unknown item to return false")
+	}
+}
+
+func TestItemRegistry_RequiresTargetField(t *testing.T) {
+	expectedTargeted := map[string]bool{
+		ItemBlueshell:    true,
+		ItemShield:       false,
+		ItemScoreSteal:   true,
+		ItemStreakBreaker: true,
+		ItemDoubleUp:     false,
+		ItemTrapCard:     false,
+		ItemReverse:      true,
+		ItemImmunity:     false,
+		ItemMulligan:     false,
+		ItemWildcard:     false,
+	}
+	for itemType, expected := range expectedTargeted {
+		meta, ok := ItemRegistry[itemType]
+		if !ok {
+			t.Errorf("item %q not in registry", itemType)
+			continue
+		}
+		if meta.RequiresTarget != expected {
+			t.Errorf("ItemRegistry[%q].RequiresTarget = %v, want %v", itemType, meta.RequiresTarget, expected)
+		}
+	}
+}
+
 func TestGamePlayer_HeldItem(t *testing.T) {
 	player := &GamePlayer{DeviceIDHash: "p1", DisplayName: "Test"}
 

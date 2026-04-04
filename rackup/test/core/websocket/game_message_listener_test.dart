@@ -13,7 +13,9 @@ import 'package:rackup/features/game/bloc/event_feed_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
+import 'package:rackup/core/models/item.dart';
 import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_event.dart';
 import 'package:rackup/features/game/bloc/item_state.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
@@ -62,7 +64,7 @@ void main() {
       gameBloc = GameBloc();
       leaderboardBloc = LeaderboardBloc();
       eventFeedCubit = EventFeedCubit();
-      itemBloc = ItemBloc();
+      itemBloc = ItemBloc(webSocketCubit: mockWsCubit);
       soundManager = SoundManager(
         playerFactory: _NoOpAudioPlayer.new,
         skipGlobalConfig: true,
@@ -1255,6 +1257,189 @@ void main() {
       };
       final payload = TurnCompletePayload.fromJson(json);
       expect(payload.itemDrop, isNull);
+    });
+
+    test('item.deployed dispatches ItemDeployConfirmed for local player',
+        () async {
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
+      );
+
+      // Put itemBloc in deploying state first.
+      itemBloc.add(ItemReceived(
+        item: Item.registry['shield']!,
+      ));
+      await Future<void>.delayed(Duration.zero);
+      itemBloc.add(const DeployItem());
+      await Future<void>.delayed(Duration.zero);
+
+      mockWsCubit.emitMessage(Message(
+        action: 'item.deployed',
+        payload: {
+          'item': 'shield',
+          'deployerId': 'local-hash',
+          'leaderboard': [
+            {
+              'deviceIdHash': 'local-hash',
+              'displayName': 'Me',
+              'score': 10,
+              'streak': 0,
+              'streakLabel': '',
+              'rank': 1,
+            },
+          ],
+        },
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(itemBloc.state, isA<ItemEmpty>());
+      listener.dispose();
+    });
+
+    test('item.deployed dispatches LeaderboardUpdated', () async {
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'other-hash',
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'item.deployed',
+        payload: {
+          'item': 'shield',
+          'deployerId': 'deployer-hash',
+          'leaderboard': [
+            {
+              'deviceIdHash': 'p1',
+              'displayName': 'Alice',
+              'score': 10,
+              'streak': 0,
+              'streakLabel': '',
+              'rank': 1,
+            },
+          ],
+        },
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(leaderboardBloc.state, isA<LeaderboardActive>());
+      listener.dispose();
+    });
+
+    test('item.deployed creates event feed entry', () async {
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'other-hash',
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'item.deployed',
+        payload: {
+          'item': 'blue_shell',
+          'deployerId': 'deployer-hash',
+          'targetId': 'target-hash',
+          'leaderboard': [
+            {
+              'deviceIdHash': 'deployer-hash',
+              'displayName': 'Alice',
+              'score': 10,
+              'streak': 0,
+              'streakLabel': '',
+              'rank': 1,
+            },
+            {
+              'deviceIdHash': 'target-hash',
+              'displayName': 'Bob',
+              'score': 5,
+              'streak': 0,
+              'streakLabel': '',
+              'rank': 2,
+            },
+          ],
+        },
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(eventFeedCubit.state.events, isNotEmpty);
+      final event = eventFeedCubit.state.events.first;
+      expect(event.text, contains('Alice'));
+      expect(event.text, contains('Blue Shell'));
+      expect(event.text, contains('Bob'));
+      listener.dispose();
+    });
+
+    test('item.fizzled dispatches ItemDeployRejected', () async {
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
+      );
+
+      // Put itemBloc in deploying state.
+      itemBloc.add(ItemReceived(
+        item: Item.registry['shield']!,
+      ));
+      await Future<void>.delayed(Duration.zero);
+      itemBloc.add(const DeployItem());
+      await Future<void>.delayed(Duration.zero);
+
+      mockWsCubit.emitMessage(Message(
+        action: 'item.fizzled',
+        payload: {
+          'item': 'shield',
+          'reason': 'ITEM_CONSUMED',
+        },
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(itemBloc.state, isA<ItemFizzled>());
+      listener.dispose();
+    });
+
+    test('item.fizzled creates event feed entry', () async {
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'local-hash',
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'item.fizzled',
+        payload: {
+          'item': 'shield',
+          'reason': 'ITEM_CONSUMED',
+        },
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(eventFeedCubit.state.events, isNotEmpty);
+      final event = eventFeedCubit.state.events.first;
+      expect(event.text, contains('Shield'));
+      expect(event.text, contains('fizzled'));
+      listener.dispose();
     });
   });
 }

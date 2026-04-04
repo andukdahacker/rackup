@@ -107,7 +107,10 @@ Widget _buildTestWidget({
           BlocProvider<GameBloc>.value(value: gameBloc),
           BlocProvider<WebSocketCubit>.value(value: webSocketCubit),
           BlocProvider<LeaderboardBloc>(create: (_) => LeaderboardBloc()),
-          BlocProvider<ItemBloc>(create: (_) => ItemBloc()),
+          BlocProvider<ItemBloc>(
+            create: (_) =>
+                ItemBloc(webSocketCubit: webSocketCubit),
+          ),
           BlocProvider<EventFeedCubit>(create: (_) => EventFeedCubit()),
         ],
         child: Builder(

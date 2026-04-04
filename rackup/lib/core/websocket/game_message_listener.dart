@@ -132,6 +132,48 @@ class GameMessageListener {
             ));
           }
 
+        case Actions.itemDeployed:
+          final payload =
+              ItemDeployedPayload.fromJson(message.payload);
+          final leaderboardEntries =
+              payload.leaderboard.map(mapToLeaderboardEntry).toList();
+
+          // Dispatch confirmation to ItemBloc for local player.
+          if (payload.deployerId == localDeviceIdHash) {
+            itemBloc.add(const ItemDeployConfirmed());
+          }
+
+          // Update leaderboard for all players.
+          leaderboardBloc.add(LeaderboardUpdated(
+            entries: leaderboardEntries,
+            shooterHash: payload.deployerId,
+            streakMilestone: false,
+            cascadeProfile: 'routine',
+          ));
+
+          // Generate event feed entry for all players.
+          _generateItemDeployedEvent(
+            payload,
+            eventFeedCubit,
+          );
+
+        case Actions.itemFizzled:
+          final payload =
+              ItemFizzledPayload.fromJson(message.payload);
+
+          // Dispatch rejection to ItemBloc (only received by deployer).
+          itemBloc.add(ItemDeployRejected(reason: payload.reason));
+
+          // Event feed entry — fun fizzle moment.
+          final itemMeta = Item.registry[payload.item];
+          final itemName = itemMeta?.displayName ?? payload.item;
+          eventFeedCubit.addEvent(EventFeedItem(
+            id: 'fizzle-${DateTime.now().microsecondsSinceEpoch}',
+            text: '$itemName fizzled!',
+            category: EventFeedCategory.item,
+            timestamp: DateTime.now(),
+          ));
+
         case Actions.gameEnded:
           // Safety net: server sends game.game_ended after game.turn_complete.
           // GameBloc may already be in GameEnded state from isGameOver flag.
@@ -266,8 +308,49 @@ class GameMessageListener {
     }
 
     // Extension points for future event sources:
-    // - Item deployments (Epic 5): EventFeedCategory.item
     // - Mission completions (Epic 6): EventFeedCategory.mission
+  }
+
+  /// Generates event feed entry for item deployment.
+  static void _generateItemDeployedEvent(
+    ItemDeployedPayload payload,
+    EventFeedCubit eventFeedCubit,
+  ) {
+    final now = DateTime.now();
+
+    // Resolve deployer name from leaderboard.
+    var deployerName = 'Player';
+    for (final entry in payload.leaderboard) {
+      if (entry.deviceIdHash == payload.deployerId) {
+        deployerName = entry.displayName;
+        break;
+      }
+    }
+
+    final itemMeta = Item.registry[payload.item];
+    final itemName = itemMeta?.displayName ?? payload.item;
+
+    final String text;
+    if (payload.targetId != null) {
+      // Resolve target name from leaderboard.
+      var targetName = 'Player';
+      for (final entry in payload.leaderboard) {
+        if (entry.deviceIdHash == payload.targetId) {
+          targetName = entry.displayName;
+          break;
+        }
+      }
+      text = '$deployerName deployed $itemName on $targetName!';
+    } else {
+      text = '$deployerName deployed $itemName!';
+    }
+
+    eventFeedCubit.addEvent(EventFeedItem(
+      id: 'deploy-${now.microsecondsSinceEpoch}',
+      text: text,
+      category: EventFeedCategory.item,
+      timestamp: now,
+    ));
   }
 
   /// Cancels the message subscription.

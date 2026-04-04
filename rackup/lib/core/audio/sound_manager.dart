@@ -10,6 +10,7 @@ enum GameSound {
   leaderboardShuffle('leaderboard_shuffle.mp3'),
   punishmentReveal('punishment_reveal.mp3'),
   streakFire('streak_fire.mp3'),
+  itemDeployed('item_deployed.mp3'),
   podiumFanfare('podium_fanfare.mp3');
 
   const GameSound(this.filename);
