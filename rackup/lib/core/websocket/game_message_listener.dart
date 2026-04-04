@@ -83,6 +83,7 @@ class GameMessageListener {
             leaderboard: leaderboardEntries,
             cascadeProfile: payload.cascadeProfile,
             isTriplePoints: payload.isTriplePoints,
+            punishment: payload.punishment,
           ));
 
           // Dispatch leaderboard update to LeaderboardBloc.

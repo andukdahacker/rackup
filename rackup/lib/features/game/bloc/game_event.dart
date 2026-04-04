@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:rackup/core/models/game_player.dart';
+import 'package:rackup/core/protocol/messages.dart';
 
 /// Events for the GameBloc.
 sealed class GameEvent extends Equatable {
@@ -60,6 +61,7 @@ class GameTurnCompleted extends GameEvent {
     this.leaderboard = const [],
     this.cascadeProfile = 'routine',
     this.isTriplePoints = false,
+    this.punishment,
   });
 
   /// The shooter's device ID hash.
@@ -101,6 +103,9 @@ class GameTurnCompleted extends GameEvent {
   /// Whether the game is in triple-point territory (final 3 rounds).
   final bool isTriplePoints;
 
+  /// Punishment drawn this turn (null for MADE shots).
+  final PunishmentPayload? punishment;
+
   @override
   List<Object?> get props => [
         shooterHash,
@@ -116,6 +121,7 @@ class GameTurnCompleted extends GameEvent {
         leaderboard,
         cascadeProfile,
         isTriplePoints,
+        punishment,
       ];
 }
 
@@ -169,4 +175,10 @@ class RecordThisReceived extends GameEvent {
 /// Resets the RECORD THIS overlay flag after it dismisses.
 class RecordThisDismissed extends GameEvent {
   const RecordThisDismissed();
+}
+
+/// Referee confirmed punishment delivery on the final turn.
+/// Transitions from [GameActive] (isGameOver: true) to [GameEnded].
+class GameEndConfirmed extends GameEvent {
+  const GameEndConfirmed();
 }

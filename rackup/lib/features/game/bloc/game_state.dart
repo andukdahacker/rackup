@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:rackup/core/models/game_player.dart';
+import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/theme/game_theme.dart';
 
 /// States for the GameBloc.
@@ -28,6 +29,9 @@ class GameActive extends GameState {
     this.isTriplePoints = false,
     this.showRecordThis = false,
     this.recordThisSubtext = '',
+    this.lastPunishment,
+    this.lastCascadeProfile = 'routine',
+    this.isGameOver = false,
   });
 
   /// Total number of rounds.
@@ -60,6 +64,17 @@ class GameActive extends GameState {
   /// Descriptive text for the RECORD THIS alert.
   final String recordThisSubtext;
 
+  /// The last punishment drawn (null for MADE shots).
+  final PunishmentPayload? lastPunishment;
+
+  /// Cascade timing profile for the last punishment.
+  final String lastCascadeProfile;
+
+  /// Whether this is the final turn and the game should end after punishment
+  /// delivery. When true, the referee sees the punishment card first, then
+  /// game-over navigation fires after "Delivered" tap.
+  final bool isGameOver;
+
   /// Creates a copy with the given fields replaced.
   GameActive copyWith({
     int? roundCount,
@@ -72,6 +87,9 @@ class GameActive extends GameState {
     bool? isTriplePoints,
     bool? showRecordThis,
     String? recordThisSubtext,
+    PunishmentPayload? lastPunishment,
+    String? lastCascadeProfile,
+    bool? isGameOver,
   }) {
     return GameActive(
       roundCount: roundCount ?? this.roundCount,
@@ -85,6 +103,9 @@ class GameActive extends GameState {
       isTriplePoints: isTriplePoints ?? this.isTriplePoints,
       showRecordThis: showRecordThis ?? this.showRecordThis,
       recordThisSubtext: recordThisSubtext ?? this.recordThisSubtext,
+      lastPunishment: lastPunishment ?? this.lastPunishment,
+      lastCascadeProfile: lastCascadeProfile ?? this.lastCascadeProfile,
+      isGameOver: isGameOver ?? this.isGameOver,
     );
   }
 
@@ -100,6 +121,9 @@ class GameActive extends GameState {
         isTriplePoints,
         showRecordThis,
         recordThisSubtext,
+        lastPunishment,
+        lastCascadeProfile,
+        isGameOver,
       ];
 }
 

@@ -14,6 +14,7 @@ import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_event.dart';
 import 'package:rackup/features/game/view/referee_screen.dart';
 import 'package:rackup/features/game/view/widgets/big_binary_buttons.dart';
+import 'package:rackup/features/game/view/widgets/punishment_announcement_card.dart';
 import 'package:rackup/features/game/view/widgets/undo_button.dart';
 
 import '../../../helpers/helpers.dart';
@@ -279,6 +280,264 @@ void main() {
       final footerNames = nameTexts.where((t) =>
           t.style != null && t.style!.fontWeight == FontWeight.w600);
       expect(footerNames, isNotEmpty);
+    });
+
+    group('Punishment flow', () {
+      const nextShooter = GamePlayer(
+        deviceIdHash: 'hash-b',
+        displayName: 'Bob',
+        slot: 2,
+        score: 0,
+        streak: 0,
+        isReferee: false,
+      );
+
+      const testPunishment = PunishmentPayload(
+        text: 'Do 5 pushups',
+        tier: 'mild',
+      );
+
+      testWidgets(
+        'idle → confirmed → punishment → idle when turn has punishment',
+        (tester) async {
+          // Start with idle state (no punishment).
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: testShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+            ),
+          );
+          await tester.pump();
+          expect(find.byType(BigBinaryButtons), findsOneWidget);
+
+          // Tap MISSED to enter confirmed state.
+          await tester.tap(find.text('MISSED'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(UndoButton), findsOneWidget);
+
+          // Simulate turn_complete with punishment arriving (rebuild with new props).
+          // The turn changes (new shooter), but confirmed state should be preserved.
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: nextShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+              lastPunishment: testPunishment,
+              lastCascadeProfile: 'routine',
+            ),
+          );
+          await tester.pump();
+          // Should still show UndoButton (confirmed state preserved).
+          expect(find.byType(UndoButton), findsOneWidget);
+
+          // Undo expires → transitions to punishment (routine = 0ms delay).
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          expect(find.byType(PunishmentAnnouncementCard), findsOneWidget);
+          expect(find.text('Do 5 pushups'), findsOneWidget);
+          expect(find.text('PUNISHMENT DELIVERED'), findsOneWidget);
+
+          // Tap Delivered → back to idle.
+          await tester.tap(find.text('PUNISHMENT DELIVERED'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          expect(find.byType(BigBinaryButtons), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'idle → confirmed → idle when turn has NO punishment (regression)',
+        (tester) async {
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: testShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+            ),
+          );
+          await tester.pump();
+
+          // Tap MADE.
+          await tester.tap(find.text('MADE'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(UndoButton), findsOneWidget);
+
+          // Undo expires — no punishment, should return to idle.
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          expect(find.byType(BigBinaryButtons), findsOneWidget);
+          expect(find.byType(PunishmentAnnouncementCard), findsNothing);
+        },
+      );
+
+      testWidgets(
+        'Delivered button tapping transitions back to idle with MADE/MISSED visible',
+        (tester) async {
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: testShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+            ),
+          );
+          await tester.pump();
+
+          // Tap MISSED → confirmed.
+          await tester.tap(find.text('MISSED'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+
+          // Rebuild with punishment props.
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: nextShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+              lastPunishment: testPunishment,
+              lastCascadeProfile: 'routine',
+            ),
+          );
+          await tester.pump();
+
+          // Undo expires → punishment card.
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          expect(find.byType(PunishmentAnnouncementCard), findsOneWidget);
+
+          // Tap Delivered.
+          await tester.tap(find.text('PUNISHMENT DELIVERED'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          // MADE/MISSED buttons should be visible again.
+          expect(find.text('MADE'), findsOneWidget);
+          expect(find.text('MISSED'), findsOneWidget);
+          expect(find.byType(PunishmentAnnouncementCard), findsNothing);
+        },
+      );
+
+      testWidgets(
+        'cascade delay: punishment card delayed by cascade profile duration',
+        (tester) async {
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: testShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+            ),
+          );
+          await tester.pump();
+
+          // Tap MISSED → confirmed.
+          await tester.tap(find.text('MISSED'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+
+          // Rebuild with spicy cascade profile (1200ms delay).
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.spicy,
+              currentShooter: nextShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+              lastPunishment: const PunishmentPayload(
+                text: 'Hot sauce!',
+                tier: 'spicy',
+              ),
+              lastCascadeProfile: 'spicy',
+            ),
+          );
+          await tester.pump();
+
+          // Undo expires.
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          // Should NOT yet show punishment (cascade delay 1200ms).
+          expect(find.byType(PunishmentAnnouncementCard), findsNothing);
+
+          // Pump through cascade delay.
+          await tester.pump(const Duration(milliseconds: 1200));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          // Now punishment card should be visible.
+          expect(find.byType(PunishmentAnnouncementCard), findsOneWidget);
+          expect(find.text('Hot sauce!'), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'didUpdateWidget race condition: turn change during confirmed state does NOT reset to idle',
+        (tester) async {
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: testShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+            ),
+          );
+          await tester.pump();
+
+          // Tap MISSED → confirmed (undo running).
+          await tester.tap(find.text('MISSED'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(UndoButton), findsOneWidget);
+
+          // Turn changes (new shooter) while in confirmed state.
+          await tester.pumpApp(
+            RefereeScreen(
+              currentRound: 1,
+              totalRounds: 10,
+              tier: EscalationTier.mild,
+              currentShooter: nextShooter,
+              webSocketCubit: mockWsCubit,
+              leaderboardBloc: leaderboardBloc,
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+
+          // Should still show UndoButton — NOT reset to idle.
+          expect(find.byType(UndoButton), findsOneWidget);
+          expect(find.byType(BigBinaryButtons), findsNothing);
+        },
+      );
     });
   });
 }

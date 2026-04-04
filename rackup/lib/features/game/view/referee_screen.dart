@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:rackup/core/cascade/cascade_timing.dart';
 import 'package:rackup/core/models/game_player.dart';
 import 'package:rackup/core/protocol/actions.dart' as proto;
 import 'package:rackup/core/protocol/messages.dart';
@@ -9,16 +12,18 @@ import 'package:rackup/core/theme/game_theme.dart';
 import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/core/widgets/player_name_tag.dart';
+import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
 import 'package:rackup/features/game/view/widgets/big_binary_buttons.dart';
 import 'package:rackup/features/game/view/widgets/progress_tier_bar.dart';
+import 'package:rackup/features/game/view/widgets/punishment_announcement_card.dart';
 import 'package:rackup/features/game/view/widgets/streak_fire_indicator.dart';
 import 'package:rackup/features/game/view/widgets/undo_button.dart';
 
 /// Action Zone state for the referee shot confirmation flow.
-enum _ActionZoneState { idle, confirmed }
+enum _ActionZoneState { idle, confirmed, punishment }
 
 /// The Referee Command Center — 4-region layout.
 ///
@@ -33,6 +38,10 @@ class RefereeScreen extends StatefulWidget {
     required this.webSocketCubit,
     required this.leaderboardBloc,
     this.isTriplePoints = false,
+    this.lastPunishment,
+    this.lastCascadeProfile = 'routine',
+    this.isGameOver = false,
+    this.gameBloc,
     super.key,
   });
 
@@ -51,6 +60,18 @@ class RefereeScreen extends StatefulWidget {
   /// Whether the game is in triple-point territory.
   final bool isTriplePoints;
 
+  /// The last punishment drawn (null for MADE shots).
+  final PunishmentPayload? lastPunishment;
+
+  /// Cascade timing profile for punishment reveal delay.
+  final String lastCascadeProfile;
+
+  /// Whether this is the final turn (game ends after punishment delivery).
+  final bool isGameOver;
+
+  /// GameBloc for dispatching GameEndConfirmed after punishment delivery.
+  final GameBloc? gameBloc;
+
   /// WebSocket cubit for sending messages.
   final WebSocketCubit webSocketCubit;
 
@@ -63,6 +84,10 @@ class RefereeScreen extends StatefulWidget {
 
 class _RefereeScreenState extends State<RefereeScreen> {
   _ActionZoneState _actionState = _ActionZoneState.idle;
+  PunishmentPayload? _pendingPunishment;
+  String _pendingCascadeProfile = 'routine';
+  bool _gameOverPending = false;
+  Timer? _cascadeTimer;
 
   void _onShotConfirmed(String result) {
     // Guard against rapid double-tap.
@@ -87,23 +112,85 @@ class _RefereeScreenState extends State<RefereeScreen> {
     // for the same shooter. If undo fails (UNDO_EXPIRED), the turn already
     // advanced from the original shot — currentShooter prop reflects the next
     // player, so showing MADE/MISSED buttons for them is correct.
-    setState(() => _actionState = _ActionZoneState.idle);
+    _cascadeTimer?.cancel();
+    setState(() {
+      _actionState = _ActionZoneState.idle;
+      _pendingPunishment = null;
+    });
   }
 
   void _onUndoExpired() {
-    setState(() => _actionState = _ActionZoneState.idle);
+    if (_pendingPunishment != null) {
+      // Wait cascade delay for suspense before showing punishment.
+      final delay = CascadeTiming.delayFor(_pendingCascadeProfile);
+      if (delay > Duration.zero) {
+        _cascadeTimer = Timer(delay, () {
+          if (!mounted) return;
+          setState(() => _actionState = _ActionZoneState.punishment);
+        });
+      } else {
+        setState(() => _actionState = _ActionZoneState.punishment);
+      }
+    } else {
+      setState(() => _actionState = _ActionZoneState.idle);
+    }
+  }
+
+  void _onPunishmentDelivered() {
+    if (_gameOverPending) {
+      // Dispatch GameEndConfirmed so GameBloc transitions to GameEnded.
+      // The GameEnded BlocListener in game_page handles navigation.
+      widget.gameBloc?.add(const GameEndConfirmed());
+      setState(() {
+        _actionState = _ActionZoneState.idle;
+        _pendingPunishment = null;
+        _gameOverPending = false;
+      });
+      return;
+    }
+    setState(() {
+      _actionState = _ActionZoneState.idle;
+      _pendingPunishment = null;
+    });
   }
 
   @override
   void didUpdateWidget(covariant RefereeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // When the turn changes, reset to idle. Compare both shooter and round
-    // to handle same-shooter consecutive turns (small games).
-    if (oldWidget.currentShooter.deviceIdHash !=
-            widget.currentShooter.deviceIdHash ||
-        oldWidget.currentRound != widget.currentRound) {
-      setState(() => _actionState = _ActionZoneState.idle);
+
+    // Capture punishment from new props before any reset logic.
+    if (widget.lastPunishment != null &&
+        widget.lastPunishment != oldWidget.lastPunishment) {
+      _pendingPunishment = widget.lastPunishment;
+      _pendingCascadeProfile = widget.lastCascadeProfile;
+      if (widget.isGameOver) {
+        _gameOverPending = true;
+      }
     }
+
+    final turnChanged =
+        oldWidget.currentShooter.deviceIdHash !=
+            widget.currentShooter.deviceIdHash ||
+        oldWidget.currentRound != widget.currentRound;
+
+    if (!turnChanged) return;
+
+    // Race condition fix: if in confirmed state (undo running), do NOT reset
+    // to idle — the undo/punishment flow is still in progress.
+    if (_actionState == _ActionZoneState.confirmed) return;
+
+    // For idle or punishment states, reset to idle on turn change.
+    _cascadeTimer?.cancel();
+    setState(() {
+      _actionState = _ActionZoneState.idle;
+      _pendingPunishment = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _cascadeTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -199,17 +286,23 @@ class _RefereeScreenState extends State<RefereeScreen> {
               child: Center(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child: _actionState == _ActionZoneState.idle
-                      ? BigBinaryButtons(
-                          key: const ValueKey('buttons'),
-                          onMade: () => _onShotConfirmed('made'),
-                          onMissed: () => _onShotConfirmed('missed'),
-                        )
-                      : UndoButton(
-                          key: const ValueKey('undo'),
-                          onUndo: _onUndo,
-                          onExpired: _onUndoExpired,
-                        ),
+                  child: switch (_actionState) {
+                    _ActionZoneState.idle => BigBinaryButtons(
+                        key: const ValueKey('buttons'),
+                        onMade: () => _onShotConfirmed('made'),
+                        onMissed: () => _onShotConfirmed('missed'),
+                      ),
+                    _ActionZoneState.confirmed => UndoButton(
+                        key: const ValueKey('undo'),
+                        onUndo: _onUndo,
+                        onExpired: _onUndoExpired,
+                      ),
+                    _ActionZoneState.punishment => PunishmentAnnouncementCard(
+                        key: const ValueKey('punishment'),
+                        punishment: _pendingPunishment!,
+                        onDelivered: _onPunishmentDelivered,
+                      ),
+                  },
                 ),
               ),
             ),

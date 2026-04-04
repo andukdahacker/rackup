@@ -346,6 +346,14 @@ class PunishmentPayload {
 
   /// The punishment tier: "mild", "medium", "spicy", "custom".
   final String tier;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PunishmentPayload && text == other.text && tier == other.tier;
+
+  @override
+  int get hashCode => Object.hash(text, tier);
 }
 
 /// Wire payload for server→client game.turn_complete.

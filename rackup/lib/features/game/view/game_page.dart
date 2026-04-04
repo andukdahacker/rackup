@@ -254,6 +254,10 @@ class _GamePageState extends State<GamePage> {
       webSocketCubit: context.read<WebSocketCubit>(),
       leaderboardBloc: context.read<LeaderboardBloc>(),
       isTriplePoints: state.isTriplePoints,
+      lastPunishment: state.lastPunishment,
+      lastCascadeProfile: state.lastCascadeProfile,
+      isGameOver: state.isGameOver,
+      gameBloc: context.read<GameBloc>(),
     );
   }
 

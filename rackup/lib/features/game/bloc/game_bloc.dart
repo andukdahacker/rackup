@@ -12,6 +12,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<GameEndReceived>(_onGameEndReceived);
     on<RecordThisReceived>(_onRecordThisReceived);
     on<RecordThisDismissed>(_onRecordThisDismissed);
+    on<GameEndConfirmed>(_onGameEndConfirmed);
   }
 
   void _onGameInitialized(
@@ -56,6 +57,27 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     final tier = computeTier(event.currentRound, current.roundCount);
 
     if (event.isGameOver) {
+      // When game-over coincides with a punishment, emit GameActive first
+      // so the referee can display and announce the punishment card.
+      // GameEnded is deferred until punishment delivery (via GameEndConfirmed).
+      if (event.punishment != null) {
+        emit(GameActive(
+          roundCount: current.roundCount,
+          currentRound: event.currentRound,
+          refereeDeviceIdHash: current.refereeDeviceIdHash,
+          currentShooterDeviceIdHash: event.currentShooterHash,
+          turnOrder: current.turnOrder,
+          players: updatedPlayers,
+          tier: tier,
+          isTriplePoints: event.isTriplePoints,
+          showRecordThis: false,
+          recordThisSubtext: '',
+          lastPunishment: event.punishment,
+          lastCascadeProfile: event.cascadeProfile,
+          isGameOver: true,
+        ));
+        return;
+      }
       emit(GameEnded(
         players: updatedPlayers,
         roundCount: current.roundCount,
@@ -64,14 +86,22 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       return;
     }
 
-    emit(current.copyWith(
-      currentShooterDeviceIdHash: event.currentShooterHash,
+    // Use direct constructor (not copyWith) so nullable lastPunishment
+    // is correctly set to null on MADE shots. copyWith's `?? this.field`
+    // pattern cannot clear a non-null value to null.
+    emit(GameActive(
+      roundCount: current.roundCount,
       currentRound: event.currentRound,
+      refereeDeviceIdHash: current.refereeDeviceIdHash,
+      currentShooterDeviceIdHash: event.currentShooterHash,
+      turnOrder: current.turnOrder,
       players: updatedPlayers,
       tier: tier,
       isTriplePoints: event.isTriplePoints,
       showRecordThis: false,
       recordThisSubtext: '',
+      lastPunishment: event.punishment,
+      lastCascadeProfile: event.cascadeProfile,
     ));
   }
 
@@ -111,6 +141,19 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     emit(current.copyWith(
       showRecordThis: false,
       recordThisSubtext: '',
+    ));
+  }
+
+  void _onGameEndConfirmed(
+    GameEndConfirmed event,
+    Emitter<GameState> emit,
+  ) {
+    final current = state;
+    if (current is! GameActive || !current.isGameOver) return;
+    emit(GameEnded(
+      players: current.players,
+      roundCount: current.roundCount,
+      refereeDeviceIdHash: current.refereeDeviceIdHash,
     ));
   }
 }

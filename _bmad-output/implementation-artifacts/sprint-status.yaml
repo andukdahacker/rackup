@@ -35,7 +35,11 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-23
-last_updated: 2026-04-03
+last_updated: 2026-04-04
+# Story 4-2 marked done: 2026-04-04
+# Story 4-2 dev completed: 2026-04-03
+# Story 4-2 dev started: 2026-04-03
+# Story 4-2 context created: 2026-04-03
 # Story 4-1 marked done: 2026-04-03
 # Story 4-1 dev completed: 2026-04-03
 # Story 4-1 dev started: 2026-04-03
@@ -119,7 +123,7 @@ development_status:
   # Epic 4: Punishment System
   epic-4: in-progress
   4-1-punishment-draw-and-tier-escalation: done
-  4-2-punishment-display-and-referee-announcement: backlog
+  4-2-punishment-display-and-referee-announcement: done
   epic-4-retrospective: optional
 
   # Epic 5: Items & Power-Ups
