@@ -8,6 +8,7 @@ import 'package:rackup/core/widgets/player_name_tag.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
 import 'package:rackup/features/game/view/widgets/event_feed_widget.dart';
+import 'package:rackup/features/game/view/widgets/item_card.dart';
 import 'package:rackup/features/game/view/widgets/leaderboard_row.dart';
 import 'package:rackup/features/game/view/widgets/progress_tier_bar.dart';
 
@@ -144,15 +145,7 @@ class PlayerScreen extends StatelessWidget {
                             ClampedTextScaler.of(context, TextRole.body),
                       ),
                     const SizedBox(width: 8),
-                    Text(
-                      'No items',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: RackUpColors.textSecondary,
-                      ),
-                      textScaler:
-                          ClampedTextScaler.of(context, TextRole.body),
-                    ),
+                    const ItemCard(),
                   ],
                 ),
               ),

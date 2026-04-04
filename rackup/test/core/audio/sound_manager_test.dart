@@ -38,11 +38,11 @@ void main() {
       registerFallbackValue(Duration.zero);
     });
 
-    test('init creates 5 players with lowLatency mode and preloads assets',
+    test('init creates players with lowLatency mode and preloads assets',
         () async {
       await soundManager.init();
 
-      expect(mockPlayers, hasLength(5));
+      expect(mockPlayers, hasLength(GameSound.values.length));
       for (final player in mockPlayers.values) {
         verify(() => player.setPlayerMode(PlayerMode.lowLatency)).called(1);
         verify(() => player.setSource(any())).called(1);

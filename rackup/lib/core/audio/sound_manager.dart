@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 /// Available game sound effects.
 enum GameSound {
   blueShellImpact('blue_shell_impact.mp3'),
+  itemDrop('item_drop.mp3'),
   leaderboardShuffle('leaderboard_shuffle.mp3'),
   punishmentReveal('punishment_reveal.mp3'),
   streakFire('streak_fire.mp3'),

@@ -20,6 +20,12 @@ type GamePlayer struct {
 	Score        int
 	Streak       int
 	IsReferee    bool
+	HeldItem     *string // current power-up item (nil = no item)
+}
+
+// ClearItem removes the player's held item (for deployment in Story 5.2).
+func (p *GamePlayer) ClearItem() {
+	p.HeldItem = nil
 }
 
 // TurnResult holds the outcome of a ProcessShot call.
@@ -53,6 +59,7 @@ type GameState struct {
 	lastStreakBefore     int       // streak before last shot (for undo)
 	lastShooterIdxBefore int      // currentShooterIndex before AdvanceTurn
 	lastRoundBefore      int      // currentRound before AdvanceTurn
+	lastHeldItemBefore   *string  // held item before last shot (for undo)
 }
 
 // NewGameState creates a GameState from the current room players.
@@ -168,6 +175,7 @@ func (gs *GameState) ProcessShot(shooterHash string, result string) (*TurnResult
 	gs.lastStreakBefore = player.Streak
 	gs.lastShooterIdxBefore = gs.CurrentShooterIndex
 	gs.lastRoundBefore = gs.CurrentRound
+	gs.lastHeldItemBefore = player.HeldItem
 
 	// Calculate score.
 	var points int
@@ -228,9 +236,10 @@ func (gs *GameState) UndoLastShot() error {
 		return errors.New("player not found for undo")
 	}
 
-	// Revert score and streak.
+	// Revert score, streak, and held item.
 	player.Score -= gs.lastScoreDelta
 	player.Streak = gs.lastStreakBefore
+	player.HeldItem = gs.lastHeldItemBefore
 
 	// Revert turn advancement.
 	gs.CurrentShooterIndex = gs.lastShooterIdxBefore
@@ -249,6 +258,7 @@ func (gs *GameState) UndoLastShot() error {
 	gs.lastStreakBefore = 0
 	gs.lastShooterIdxBefore = 0
 	gs.lastRoundBefore = 0
+	gs.lastHeldItemBefore = nil
 
 	return nil
 }

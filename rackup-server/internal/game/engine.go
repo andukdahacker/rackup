@@ -39,6 +39,9 @@ type ChainContext struct {
 	Punishment     string // drawn punishment text (empty if shot was made)
 	PunishmentTier string // "mild", "medium", "spicy", "custom" (empty if no punishment)
 
+	// Populated by item_drop_step.
+	ItemDrop *ItemDropResult // nil when no item dropped
+
 	// CascadeProfile for UI timing.
 	CascadeProfile string // "routine", "streak_milestone", "item_punishment", "spicy", "record_this", "triple_points"
 

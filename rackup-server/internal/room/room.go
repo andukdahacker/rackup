@@ -658,6 +658,7 @@ func (r *Room) handleConfirmShotLocked(deviceHash string, payload json.RawMessag
 	// Run consequence chain instead of direct ProcessShot.
 	chain := game.NewConsequenceChain()
 	chain.ReplaceStep("punishment_slot", &game.PunishmentStep{Deck: r.punishmentDeck})
+	chain.ReplaceStep("item_drop_slot", &game.ItemDropStep{})
 	chain.ReplaceStep("record_this_check_slot", &game.RecordThisCheckStep{})
 	chainCtx, err := chain.Run(r.gameState, r.gameState.CurrentShooterDeviceIDHash(), shotPayload.Result)
 	if err != nil {
@@ -762,6 +763,15 @@ func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
 		}
 	}
 
+	// Build item drop payload (nil when no item dropped).
+	var itemDropPayload *protocol.ItemDropPayload
+	if chainCtx.ItemDrop != nil {
+		itemDropPayload = &protocol.ItemDropPayload{
+			Item:     chainCtx.ItemDrop.ItemType,
+			PlayerID: chainCtx.ShooterHash,
+		}
+	}
+
 	payload, err := json.Marshal(protocol.TurnCompletePayload{
 		ShooterHash:           result.ShooterHash,
 		Result:                result.Result,
@@ -778,6 +788,7 @@ func (r *Room) broadcastTurnCompleteLocked(chainCtx *game.ChainContext) {
 		IsTriplePoints:        result.IsTriplePoints,
 		TriplePointsActivated: chainCtx.TriplePointsActivated,
 		Punishment:            punishmentPayload,
+		ItemDrop:              itemDropPayload,
 		RecordThis:            chainCtx.RecordThis,
 		RecordThisSubtext:     chainCtx.RecordThisSubtext,
 		RecordThisTargetHash:  chainCtx.TargetPlayerHash,

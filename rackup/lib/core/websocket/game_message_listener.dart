@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:rackup/core/audio/sound_manager.dart';
+import 'package:rackup/core/models/item.dart';
 import 'package:rackup/core/protocol/actions.dart';
 import 'package:rackup/core/protocol/mapper.dart';
 import 'package:rackup/core/protocol/messages.dart';
@@ -10,6 +11,8 @@ import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
 import 'package:rackup/features/game/bloc/event_feed_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
+import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_event.dart';
 
@@ -25,6 +28,7 @@ class GameMessageListener {
     required GameBloc gameBloc,
     required LeaderboardBloc leaderboardBloc,
     required EventFeedCubit eventFeedCubit,
+    required ItemBloc itemBloc,
     required String localDeviceIdHash,
     required SoundManager soundManager,
   }) : _subscription = webSocketCubit.messages.listen((message) {
@@ -33,6 +37,7 @@ class GameMessageListener {
             gameBloc,
             leaderboardBloc,
             eventFeedCubit,
+            itemBloc,
             localDeviceIdHash,
             soundManager,
           );
@@ -45,6 +50,7 @@ class GameMessageListener {
     GameBloc gameBloc,
     LeaderboardBloc leaderboardBloc,
     EventFeedCubit eventFeedCubit,
+    ItemBloc itemBloc,
     String localDeviceIdHash,
     SoundManager soundManager,
   ) {
@@ -100,6 +106,20 @@ class GameMessageListener {
           // Trigger punishment reveal sound when punishment is drawn.
           if (payload.punishment != null) {
             unawaited(soundManager.play(GameSound.punishmentReveal));
+          }
+
+          // Dispatch item drop if applicable.
+          if (payload.itemDrop != null) {
+            final item = mapToItem(payload.itemDrop!);
+            if (item != null) {
+              // Dispatch to ItemBloc only for the local player.
+              if (payload.itemDrop!.playerId == localDeviceIdHash) {
+                itemBloc.add(ItemReceived(item: item));
+              }
+
+              // Play item drop sound for all players.
+              unawaited(soundManager.play(GameSound.itemDrop));
+            }
           }
 
           // Dispatch RECORD THIS if applicable.
@@ -221,6 +241,26 @@ class GameMessageListener {
         id: 'gameover-${now.microsecondsSinceEpoch}',
         text: 'GAME OVER',
         category: EventFeedCategory.system,
+        timestamp: now,
+      ));
+    }
+
+    // 5. Item drop event (if item dropped).
+    if (payload.itemDrop != null) {
+      // Resolve recipient name from leaderboard.
+      var recipientName = 'Player';
+      for (final entry in payload.leaderboard) {
+        if (entry.deviceIdHash == payload.itemDrop!.playerId) {
+          recipientName = entry.displayName;
+          break;
+        }
+      }
+      final itemMeta = Item.registry[payload.itemDrop!.item];
+      final itemName = itemMeta?.displayName ?? payload.itemDrop!.item;
+      eventFeedCubit.addEvent(EventFeedItem(
+        id: 'item-${now.microsecondsSinceEpoch}',
+        text: 'The pool gods smile upon $recipientName \u2014 $itemName!',
+        category: EventFeedCategory.item,
         timestamp: now,
       ));
     }

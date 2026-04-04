@@ -7,6 +7,7 @@ import 'package:rackup/core/theme/rackup_colors.dart';
 import 'package:rackup/core/widgets/player_name_tag.dart';
 import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
+import 'package:rackup/features/game/bloc/item_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_event.dart';
 import 'package:rackup/features/game/view/player_screen.dart';
@@ -38,21 +39,27 @@ void main() {
 
     late LeaderboardBloc leaderboardBloc;
     late EventFeedCubit eventFeedCubit;
+    late ItemBloc itemBloc;
 
     setUp(() {
       leaderboardBloc = LeaderboardBloc();
       eventFeedCubit = EventFeedCubit();
+      itemBloc = ItemBloc();
     });
 
     tearDown(() {
       leaderboardBloc.close();
       eventFeedCubit.close();
+      itemBloc.close();
     });
 
-    /// Wraps a widget with the required [EventFeedCubit] provider.
-    Widget wrapWithFeedCubit(Widget child) {
-      return BlocProvider<EventFeedCubit>.value(
-        value: eventFeedCubit,
+    /// Wraps a widget with the required providers.
+    Widget wrapWithProviders(Widget child) {
+      return MultiBlocProvider(
+        providers: [
+          BlocProvider<EventFeedCubit>.value(value: eventFeedCubit),
+          BlocProvider<ItemBloc>.value(value: itemBloc),
+        ],
         child: child,
       );
     }
@@ -61,7 +68,7 @@ void main() {
         'renders all 4 regions with correct content, self-row highlighted',
         (tester) async {
       await tester.pumpApp(
-        wrapWithFeedCubit(PlayerScreen(
+        wrapWithProviders(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -81,8 +88,8 @@ void main() {
       expect(find.text('Alice'), findsAtLeast(1));
       expect(find.text('Bob'), findsOneWidget);
 
-      // My Status: items placeholder.
-      expect(find.text('No items'), findsOneWidget);
+      // My Status: empty item card placeholder.
+      expect(find.byKey(const ValueKey('item-empty')), findsOneWidget);
 
       // Self-row highlighted: verify Alice's PlayerNameTag uses highlighted
       // state.
@@ -102,7 +109,7 @@ void main() {
 
     testWidgets('EventFeedWidget is in the widget tree', (tester) async {
       await tester.pumpApp(
-        wrapWithFeedCubit(PlayerScreen(
+        wrapWithProviders(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -118,7 +125,7 @@ void main() {
 
     testWidgets('leaderboard sorts by score descending', (tester) async {
       await tester.pumpApp(
-        wrapWithFeedCubit(PlayerScreen(
+        wrapWithProviders(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -140,7 +147,7 @@ void main() {
     testWidgets('shows streak indicator in My Status when streak > 0',
         (tester) async {
       await tester.pumpApp(
-        wrapWithFeedCubit(PlayerScreen(
+        wrapWithProviders(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -184,7 +191,7 @@ void main() {
       ));
 
       await tester.pumpApp(
-        wrapWithFeedCubit(PlayerScreen(
+        wrapWithProviders(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -247,7 +254,7 @@ void main() {
       ));
 
       await tester.pumpApp(
-        wrapWithFeedCubit(PlayerScreen(
+        wrapWithProviders(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -369,7 +376,7 @@ void main() {
       ));
 
       await tester.pumpApp(
-        wrapWithFeedCubit(PlayerScreen(
+        wrapWithProviders(PlayerScreen(
           currentRound: 1,
           totalRounds: 10,
           tier: EscalationTier.mild,
@@ -433,8 +440,11 @@ void main() {
                 backgroundColor: RackUpColors.tierMild,
                 animationsEnabled: false,
               ),
-              child: BlocProvider<EventFeedCubit>.value(
-                value: eventFeedCubit,
+              child: MultiBlocProvider(
+                providers: [
+                  BlocProvider<EventFeedCubit>.value(value: eventFeedCubit),
+                  BlocProvider<ItemBloc>.value(value: itemBloc),
+                ],
                 child: PlayerScreen(
                   currentRound: 1,
                   totalRounds: 10,

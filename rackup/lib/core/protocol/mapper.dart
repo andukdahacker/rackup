@@ -1,6 +1,7 @@
 // Protocol message mapper — maps between wire format and domain models.
 
 import 'package:rackup/core/models/game_player.dart';
+import 'package:rackup/core/models/item.dart';
 import 'package:rackup/core/models/player.dart';
 import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
@@ -39,6 +40,12 @@ LeaderboardEntry mapToLeaderboardEntry(LeaderboardEntryPayload payload) {
     rank: payload.rank,
     rankChanged: payload.rankChanged,
   );
+}
+
+/// Maps an [ItemDropPayload] wire type to an [Item] domain model.
+/// Returns null if the item type is not in the registry.
+Item? mapToItem(ItemDropPayload payload) {
+  return Item.registry[payload.item];
 }
 
 PlayerStatus _mapStatus(String status) {

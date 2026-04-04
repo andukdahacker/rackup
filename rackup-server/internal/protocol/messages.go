@@ -78,6 +78,13 @@ type PunishmentPayload struct {
 	Tier string `json:"tier"`
 }
 
+// ItemDropPayload is the nested item drop object in turn_complete.
+// Absent (omitempty) when no item dropped.
+type ItemDropPayload struct {
+	Item     string `json:"item"`     // item type key (e.g., "blue_shell")
+	PlayerID string `json:"playerId"` // device ID hash of recipient
+}
+
 // TurnCompletePayload is the server→client payload for game.turn_complete.
 type TurnCompletePayload struct {
 	ShooterHash            string             `json:"shooterHash"`
@@ -95,6 +102,7 @@ type TurnCompletePayload struct {
 	IsTriplePoints         bool               `json:"isTriplePoints"`          // true when in final 3 rounds
 	TriplePointsActivated  bool               `json:"triplePointsActivated"`   // true only on first triple-point turn
 	Punishment             *PunishmentPayload `json:"punishment,omitempty"`    // punishment drawn on missed shot
+	ItemDrop               *ItemDropPayload   `json:"itemDrop,omitempty"`     // item dropped on missed shot
 	RecordThis             bool               `json:"recordThis"`              // true when RECORD THIS moment detected
 	RecordThisSubtext      string             `json:"recordThisSubtext"`       // descriptive text for the alert
 	RecordThisTargetHash   string             `json:"recordThisTargetHash"`    // player to exclude from alert

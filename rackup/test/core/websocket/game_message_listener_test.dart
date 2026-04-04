@@ -13,6 +13,8 @@ import 'package:rackup/features/game/bloc/event_feed_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
+import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_state.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
 
@@ -52,6 +54,7 @@ void main() {
     late GameBloc gameBloc;
     late LeaderboardBloc leaderboardBloc;
     late EventFeedCubit eventFeedCubit;
+    late ItemBloc itemBloc;
     late SoundManager soundManager;
 
     setUp(() {
@@ -59,6 +62,7 @@ void main() {
       gameBloc = GameBloc();
       leaderboardBloc = LeaderboardBloc();
       eventFeedCubit = EventFeedCubit();
+      itemBloc = ItemBloc();
       soundManager = SoundManager(
         playerFactory: _NoOpAudioPlayer.new,
         skipGlobalConfig: true,
@@ -67,6 +71,7 @@ void main() {
 
     tearDown(() {
       eventFeedCubit.close();
+      itemBloc.close();
       leaderboardBloc.close();
       gameBloc.close();
       mockWsCubit.disposeController();
@@ -79,6 +84,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -140,6 +146,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -212,6 +219,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -259,6 +267,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -293,6 +302,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -347,6 +357,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -398,6 +409,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -455,6 +467,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -510,6 +523,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -542,6 +556,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -598,6 +613,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'hash-a', // matches target
         soundManager: soundManager,
       );
@@ -653,6 +669,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -708,6 +725,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'hash-a', // matches target
         soundManager: soundManager,
       );
@@ -764,6 +782,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -821,6 +840,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -882,6 +902,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -944,6 +965,7 @@ void main() {
         gameBloc: gameBloc,
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -1017,6 +1039,222 @@ void main() {
       };
       final payload = TurnCompletePayload.fromJson(json);
       expect(payload.punishment, isNull);
+    });
+
+    test('itemDrop dispatches ItemReceived to ItemBloc for matching player',
+        () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'hash-a',
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'missed',
+          'pointsAwarded': 0,
+          'newScore': 0,
+          'newStreak': 0,
+          'currentShooterHash': 'hash-b',
+          'currentRound': 2,
+          'isGameOver': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 0,
+              'streak': 0,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'item_punishment',
+          'itemDrop': {
+            'item': 'shield',
+            'playerId': 'hash-a',
+          },
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(itemBloc.state, isA<ItemHeld>());
+      final held = itemBloc.state as ItemHeld;
+      expect(held.item.type, 'shield');
+
+      listener.dispose();
+    });
+
+    test('itemDrop does NOT dispatch ItemReceived for non-matching player',
+        () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'hash-b', // different player
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'missed',
+          'pointsAwarded': 0,
+          'newScore': 0,
+          'newStreak': 0,
+          'currentShooterHash': 'hash-b',
+          'currentRound': 2,
+          'isGameOver': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 0,
+              'streak': 0,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'item_punishment',
+          'itemDrop': {
+            'item': 'shield',
+            'playerId': 'hash-a',
+          },
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // ItemBloc should remain in ItemEmpty state.
+      expect(itemBloc.state, isA<ItemEmpty>());
+
+      listener.dispose();
+    });
+
+    test('itemDrop creates event feed entry for all players', () async {
+      gameBloc.add(const GameInitialized(
+        roundCount: 10,
+        refereeDeviceIdHash: 'ref-hash',
+        turnOrder: ['hash-a'],
+        currentShooterDeviceIdHash: 'hash-a',
+        players: [],
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      final listener = GameMessageListener(
+        webSocketCubit: mockWsCubit,
+        gameBloc: gameBloc,
+        leaderboardBloc: leaderboardBloc,
+        eventFeedCubit: eventFeedCubit,
+        itemBloc: itemBloc,
+        localDeviceIdHash: 'hash-b', // different player
+        soundManager: soundManager,
+      );
+
+      mockWsCubit.emitMessage(Message(
+        action: 'game.turn_complete',
+        payload: {
+          'shooterHash': 'hash-a',
+          'result': 'missed',
+          'pointsAwarded': 0,
+          'newScore': 0,
+          'newStreak': 0,
+          'currentShooterHash': 'hash-b',
+          'currentRound': 2,
+          'isGameOver': false,
+          'leaderboard': [
+            {
+              'deviceIdHash': 'hash-a',
+              'displayName': 'Alice',
+              'score': 0,
+              'streak': 0,
+              'rank': 1,
+              'streakLabel': '',
+            },
+          ],
+          'cascadeProfile': 'item_punishment',
+          'itemDrop': {
+            'item': 'shield',
+            'playerId': 'hash-a',
+          },
+        },
+      ));
+
+      await Future<void>.delayed(Duration.zero);
+
+      // Should have score event + item event.
+      final itemEvents = eventFeedCubit.state.events
+          .where((e) => e.category == EventFeedCategory.item)
+          .toList();
+      expect(itemEvents, hasLength(1));
+      expect(itemEvents.first.text, contains('pool gods'));
+      expect(itemEvents.first.text, contains('Alice'));
+      expect(itemEvents.first.text, contains('Shield'));
+
+      listener.dispose();
+    });
+
+    test('ItemDropPayload deserializes from JSON', () {
+      final json = {
+        'shooterHash': 'hash-a',
+        'result': 'missed',
+        'pointsAwarded': 0,
+        'newScore': 0,
+        'newStreak': 0,
+        'currentShooterHash': 'hash-b',
+        'currentRound': 2,
+        'isGameOver': false,
+        'itemDrop': {
+          'item': 'blue_shell',
+          'playerId': 'hash-a',
+        },
+      };
+      final payload = TurnCompletePayload.fromJson(json);
+      expect(payload.itemDrop, isNotNull);
+      expect(payload.itemDrop!.item, 'blue_shell');
+      expect(payload.itemDrop!.playerId, 'hash-a');
+    });
+
+    test('ItemDropPayload is null when absent from JSON', () {
+      final json = {
+        'shooterHash': 'hash-a',
+        'result': 'made',
+        'pointsAwarded': 3,
+        'newScore': 3,
+        'newStreak': 1,
+        'currentShooterHash': 'hash-a',
+        'currentRound': 1,
+        'isGameOver': false,
+      };
+      final payload = TurnCompletePayload.fromJson(json);
+      expect(payload.itemDrop, isNull);
     });
   });
 }

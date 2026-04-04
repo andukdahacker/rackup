@@ -326,6 +326,38 @@ class ConfirmShotPayload {
   Map<String, dynamic> toJson() => {'result': result};
 }
 
+/// Nested item drop payload in turn_complete.
+/// Null when no item dropped.
+/// SYNC WITH: rackup-server/internal/protocol/messages.go (ItemDropPayload)
+class ItemDropPayload {
+  /// Creates an [ItemDropPayload].
+  const ItemDropPayload({required this.item, required this.playerId});
+
+  /// Creates from JSON map.
+  factory ItemDropPayload.fromJson(Map<String, dynamic> json) {
+    return ItemDropPayload(
+      item: json['item'] as String,
+      playerId: json['playerId'] as String,
+    );
+  }
+
+  /// The item type key (e.g., "blue_shell").
+  final String item;
+
+  /// Device ID hash of the player who received the item.
+  final String playerId;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ItemDropPayload &&
+          item == other.item &&
+          playerId == other.playerId;
+
+  @override
+  int get hashCode => Object.hash(item, playerId);
+}
+
 /// Nested punishment payload in turn_complete.
 /// Null when no punishment is drawn (on MADE shots).
 /// SYNC WITH: rackup-server/internal/protocol/messages.go (PunishmentPayload)
@@ -376,6 +408,7 @@ class TurnCompletePayload {
     this.isTriplePoints = false,
     this.triplePointsActivated = false,
     this.punishment,
+    this.itemDrop,
     this.recordThis = false,
     this.recordThisSubtext = '',
     this.recordThisTargetHash = '',
@@ -391,6 +424,7 @@ class TurnCompletePayload {
             .toList() ??
         const [];
     final punishmentJson = json['punishment'] as Map<String, dynamic>?;
+    final itemDropJson = json['itemDrop'] as Map<String, dynamic>?;
     return TurnCompletePayload(
       shooterHash: json['shooterHash'] as String,
       result: json['result'] as String,
@@ -408,6 +442,9 @@ class TurnCompletePayload {
       triplePointsActivated: json['triplePointsActivated'] as bool? ?? false,
       punishment: punishmentJson != null
           ? PunishmentPayload.fromJson(punishmentJson)
+          : null,
+      itemDrop: itemDropJson != null
+          ? ItemDropPayload.fromJson(itemDropJson)
           : null,
       recordThis: json['recordThis'] as bool? ?? false,
       recordThisSubtext: json['recordThisSubtext'] as String? ?? '',
@@ -459,6 +496,9 @@ class TurnCompletePayload {
 
   /// Punishment drawn on missed shot. Null when shot was made.
   final PunishmentPayload? punishment;
+
+  /// Item dropped on missed shot. Null when no item dropped.
+  final ItemDropPayload? itemDrop;
 
   /// Whether a RECORD THIS moment was detected.
   final bool recordThis;

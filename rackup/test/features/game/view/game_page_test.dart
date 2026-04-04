@@ -17,6 +17,7 @@ import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
 import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
+import 'package:rackup/features/game/bloc/item_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/game_page.dart';
 import 'package:rackup/l10n/l10n.dart';
@@ -106,6 +107,7 @@ Widget _buildTestWidget({
           BlocProvider<GameBloc>.value(value: gameBloc),
           BlocProvider<WebSocketCubit>.value(value: webSocketCubit),
           BlocProvider<LeaderboardBloc>(create: (_) => LeaderboardBloc()),
+          BlocProvider<ItemBloc>(create: (_) => ItemBloc()),
           BlocProvider<EventFeedCubit>(create: (_) => EventFeedCubit()),
         ],
         child: Builder(
@@ -173,8 +175,8 @@ void main() {
         webSocketCubit: mockWsCubit,
       ));
 
-      // Player screen should show.
-      expect(find.text('No items'), findsOneWidget);
+      // Player screen should show (ItemCard empty placeholder).
+      expect(find.byKey(const ValueKey('item-empty')), findsOneWidget);
       // No overlay.
       expect(find.text("YOU'RE THE REFEREE NOW"), findsNothing);
     });
