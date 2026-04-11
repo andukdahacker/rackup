@@ -36,6 +36,7 @@
 
 generated: 2026-03-23
 last_updated: 2026-04-04
+# Story 5-3 context created: 2026-04-04
 # Story 5-2 dev completed: 2026-04-04
 # Story 5-2 dev started: 2026-04-04
 # Story 5-2 context created: 2026-04-04
@@ -134,7 +135,7 @@ development_status:
   epic-5: in-progress
   5-1-item-drop-and-inventory: done
   5-2-item-deployment-and-targeting: review
-  5-3-item-effects-offensive-items: backlog
+  5-3-item-effects-offensive-items: ready-for-dev
   5-4-item-effects-defensive-and-self-items: backlog
   epic-5-retrospective: optional
 
