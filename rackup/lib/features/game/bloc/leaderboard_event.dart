@@ -34,3 +34,17 @@ class LeaderboardUpdated extends LeaderboardEvent {
   List<Object?> get props =>
       [entries, shooterHash, streakMilestone, cascadeProfile];
 }
+
+/// Refresh leaderboard rankings without invoking turn-completion side
+/// effects (no shooter highlight, no streak milestone trigger, no cascade
+/// shuffle animations). Used by item deployment / fizzle paths which only
+/// need to push current rankings without pretending a turn just ended.
+class LeaderboardRefreshed extends LeaderboardEvent {
+  const LeaderboardRefreshed({required this.entries});
+
+  /// Current sorted leaderboard entries.
+  final List<LeaderboardEntry> entries;
+
+  @override
+  List<Object?> get props => [entries];
+}

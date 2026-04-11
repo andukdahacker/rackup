@@ -155,6 +155,7 @@ class _EventRow extends StatelessWidget {
       EventFeedCategory.score => const Color(0xFF22C55E),
       EventFeedCategory.streak => RackUpColors.streakGold,
       EventFeedCategory.item => RackUpColors.itemBlue,
+      EventFeedCategory.itemFizzle => RackUpColors.textSecondary,
       EventFeedCategory.punishment => RackUpColors.missedRed,
       EventFeedCategory.mission => RackUpColors.missionPurple,
       EventFeedCategory.system => RackUpColors.textPrimary,

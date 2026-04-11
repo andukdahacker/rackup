@@ -15,6 +15,7 @@ import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
 import 'package:rackup/core/models/item.dart';
 import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_deployment_events_cubit.dart';
 import 'package:rackup/features/game/bloc/item_event.dart';
 import 'package:rackup/features/game/bloc/item_state.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
@@ -57,6 +58,7 @@ void main() {
     late LeaderboardBloc leaderboardBloc;
     late EventFeedCubit eventFeedCubit;
     late ItemBloc itemBloc;
+    late ItemDeploymentEventsCubit itemDeploymentEventsCubit;
     late SoundManager soundManager;
 
     setUp(() {
@@ -65,6 +67,7 @@ void main() {
       leaderboardBloc = LeaderboardBloc();
       eventFeedCubit = EventFeedCubit();
       itemBloc = ItemBloc(webSocketCubit: mockWsCubit);
+      itemDeploymentEventsCubit = ItemDeploymentEventsCubit();
       soundManager = SoundManager(
         playerFactory: _NoOpAudioPlayer.new,
         skipGlobalConfig: true,
@@ -73,6 +76,7 @@ void main() {
 
     tearDown(() {
       eventFeedCubit.close();
+      itemDeploymentEventsCubit.close();
       itemBloc.close();
       leaderboardBloc.close();
       gameBloc.close();
@@ -87,6 +91,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -149,6 +154,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -222,6 +228,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -270,6 +277,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -305,6 +313,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -360,6 +369,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -412,6 +422,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -470,6 +481,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -526,6 +538,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -559,6 +572,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -616,6 +630,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'hash-a', // matches target
         soundManager: soundManager,
       );
@@ -672,6 +687,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -728,6 +744,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'hash-a', // matches target
         soundManager: soundManager,
       );
@@ -785,6 +802,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -843,6 +861,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -905,6 +924,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -968,6 +988,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -1060,6 +1081,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'hash-a',
         soundManager: soundManager,
       );
@@ -1119,6 +1141,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'hash-b', // different player
         soundManager: soundManager,
       );
@@ -1176,6 +1199,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'hash-b', // different player
         soundManager: soundManager,
       );
@@ -1267,6 +1291,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -1309,6 +1334,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'other-hash',
         soundManager: soundManager,
       );
@@ -1343,6 +1369,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'other-hash',
         soundManager: soundManager,
       );
@@ -1390,6 +1417,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );
@@ -1422,6 +1450,7 @@ void main() {
         leaderboardBloc: leaderboardBloc,
         eventFeedCubit: eventFeedCubit,
         itemBloc: itemBloc,
+        itemDeploymentEventsCubit: itemDeploymentEventsCubit,
         localDeviceIdHash: 'local-hash',
         soundManager: soundManager,
       );

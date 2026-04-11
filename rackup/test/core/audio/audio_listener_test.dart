@@ -7,10 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/audio/audio_listener.dart';
 import 'package:rackup/core/audio/sound_manager.dart';
-import 'package:rackup/core/models/item.dart';
-import 'package:rackup/features/game/bloc/item_bloc.dart';
-import 'package:rackup/features/game/bloc/item_event.dart';
-import 'package:rackup/features/game/bloc/item_state.dart';
+import 'package:rackup/features/game/bloc/item_deployment_events_cubit.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
@@ -21,30 +18,16 @@ class MockLeaderboardBloc
     extends MockBloc<LeaderboardEvent, LeaderboardState>
     implements LeaderboardBloc {}
 
-class MockItemBloc extends MockBloc<ItemEvent, ItemState>
-    implements ItemBloc {}
+class MockItemDeploymentEventsCubit
+    extends MockCubit<ItemDeploymentEventState>
+    implements ItemDeploymentEventsCubit {}
 
 void main() {
   late MockSoundManager mockSoundManager;
   late MockLeaderboardBloc mockLeaderboardBloc;
-  late MockItemBloc mockItemBloc;
+  late MockItemDeploymentEventsCubit mockItemEvents;
   late StreamController<LeaderboardState> leaderboardStateController;
-  late StreamController<ItemState> itemStateController;
-
-  const shield = Item(
-    type: 'shield',
-    displayName: 'Shield',
-    accentColorHex: '#14B8A6',
-    iconData: Icons.shield,
-    requiresTarget: false,
-  );
-  const blueShell = Item(
-    type: 'blue_shell',
-    displayName: 'Blue Shell',
-    accentColorHex: '#3B82F6',
-    iconData: Icons.gps_fixed,
-    requiresTarget: true,
-  );
+  late StreamController<ItemDeploymentEventState> itemEventsController;
 
   setUpAll(() {
     registerFallbackValue(GameSound.streakFire);
@@ -53,29 +36,31 @@ void main() {
   setUp(() {
     mockSoundManager = MockSoundManager();
     mockLeaderboardBloc = MockLeaderboardBloc();
-    mockItemBloc = MockItemBloc();
+    mockItemEvents = MockItemDeploymentEventsCubit();
     leaderboardStateController =
         StreamController<LeaderboardState>.broadcast();
-    itemStateController = StreamController<ItemState>.broadcast();
+    itemEventsController =
+        StreamController<ItemDeploymentEventState>.broadcast();
     when(() => mockSoundManager.play(any())).thenAnswer((_) async {});
     when(() => mockLeaderboardBloc.state)
         .thenReturn(const LeaderboardInitial());
-    when(() => mockItemBloc.state).thenReturn(const ItemEmpty());
+    when(() => mockItemEvents.state)
+        .thenReturn(const ItemDeploymentEventState(sequence: 0));
     whenListen(
       mockLeaderboardBloc,
       leaderboardStateController.stream,
       initialState: const LeaderboardInitial(),
     );
     whenListen(
-      mockItemBloc,
-      itemStateController.stream,
-      initialState: const ItemEmpty(),
+      mockItemEvents,
+      itemEventsController.stream,
+      initialState: const ItemDeploymentEventState(sequence: 0),
     );
   });
 
   tearDown(() {
     leaderboardStateController.close();
-    itemStateController.close();
+    itemEventsController.close();
   });
 
   Widget buildSubject() {
@@ -83,7 +68,7 @@ void main() {
       home: MultiBlocProvider(
         providers: [
           BlocProvider<LeaderboardBloc>.value(value: mockLeaderboardBloc),
-          BlocProvider<ItemBloc>.value(value: mockItemBloc),
+          BlocProvider<ItemDeploymentEventsCubit>.value(value: mockItemEvents),
         ],
         child: AudioListener(
           soundManager: mockSoundManager,
@@ -93,7 +78,7 @@ void main() {
     );
   }
 
-  group('AudioListener', () {
+  group('AudioListener — leaderboard sounds', () {
     testWidgets('plays streakFire when streakMilestone is true',
         (tester) async {
       await tester.pumpWidget(buildSubject());
@@ -176,57 +161,79 @@ void main() {
 
       verify(() => mockSoundManager.play(GameSound.streakFire)).called(1);
     });
+  });
 
-    testWidgets(
-        'plays itemDeployed on server confirmation (Deploying→Empty)',
+  group('AudioListener — item deployment sounds', () {
+    testWidgets('plays itemDeployed when generic item deploys for any client',
         (tester) async {
       await tester.pumpWidget(buildSubject());
 
-      // Transition: ItemDeploying → ItemEmpty (confirmed).
-      itemStateController.add(const ItemDeploying(item: shield));
-      await tester.pump();
-      itemStateController.add(const ItemEmpty());
+      itemEventsController.add(const ItemDeploymentEventState(
+        sequence: 1,
+        kind: ItemDeploymentEventKind.deployed,
+        itemType: 'shield',
+        deployerId: 'p1',
+      ));
       await tester.pump();
 
       verify(() => mockSoundManager.play(GameSound.itemDeployed)).called(1);
+      verifyNever(() => mockSoundManager.play(GameSound.blueShellImpact));
     });
 
-    testWidgets(
-        'plays blueShellImpact on Blue Shell confirmation',
-        (tester) async {
+    testWidgets('plays blueShellImpact when blue shell deploys', (tester) async {
       await tester.pumpWidget(buildSubject());
 
-      itemStateController.add(const ItemDeploying(item: blueShell));
-      await tester.pump();
-      itemStateController.add(const ItemEmpty());
+      itemEventsController.add(const ItemDeploymentEventState(
+        sequence: 1,
+        kind: ItemDeploymentEventKind.deployed,
+        itemType: 'blue_shell',
+        deployerId: 'p1',
+        targetId: 'p2',
+      ));
       await tester.pump();
 
       verify(() => mockSoundManager.play(GameSound.blueShellImpact))
           .called(1);
+      verifyNever(() => mockSoundManager.play(GameSound.itemDeployed));
     });
 
-    testWidgets('does not play sound on fizzle', (tester) async {
+    testWidgets('does not play sound on fizzle event', (tester) async {
       await tester.pumpWidget(buildSubject());
 
-      itemStateController.add(const ItemDeploying(item: shield));
-      await tester.pump();
-      itemStateController
-          .add(const ItemFizzled(item: shield, reason: 'TIMEOUT'));
+      itemEventsController.add(const ItemDeploymentEventState(
+        sequence: 1,
+        kind: ItemDeploymentEventKind.fizzled,
+        itemType: 'shield',
+        reason: 'INVALID_TARGET',
+      ));
       await tester.pump();
 
       verifyNever(() => mockSoundManager.play(GameSound.itemDeployed));
       verifyNever(() => mockSoundManager.play(GameSound.blueShellImpact));
     });
 
-    testWidgets('does not play sound on ItemDeploying alone',
+    testWidgets(
+        'plays sound again for repeated identical events (sequence bumps)',
         (tester) async {
       await tester.pumpWidget(buildSubject());
 
-      itemStateController.add(const ItemDeploying(item: shield));
+      itemEventsController.add(const ItemDeploymentEventState(
+        sequence: 1,
+        kind: ItemDeploymentEventKind.deployed,
+        itemType: 'shield',
+        deployerId: 'p1',
+      ));
       await tester.pump();
 
-      verifyNever(() => mockSoundManager.play(GameSound.itemDeployed));
-      verifyNever(() => mockSoundManager.play(GameSound.blueShellImpact));
+      itemEventsController.add(const ItemDeploymentEventState(
+        sequence: 2,
+        kind: ItemDeploymentEventKind.deployed,
+        itemType: 'shield',
+        deployerId: 'p1',
+      ));
+      await tester.pump();
+
+      verify(() => mockSoundManager.play(GameSound.itemDeployed)).called(2);
     });
   });
 }

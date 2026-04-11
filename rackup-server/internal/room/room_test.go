@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ducdo/rackup-server/internal/game"
 	"github.com/ducdo/rackup-server/internal/protocol"
 	"nhooyr.io/websocket"
 )
@@ -1715,5 +1716,427 @@ func TestConfirmShot_LeaderboardHasStreakLabels(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected at least one entry with score > 0")
+	}
+}
+
+// --- Story 5.2: Item Deployment Tests ---
+
+// sendItemDeploy sends an `item.deploy` action to the room. The targetID
+// may be the empty string for non-targeted items.
+func sendItemDeploy(t *testing.T, r *Room, deviceHash, item, targetID string) {
+	t.Helper()
+	deployBytes, err := json.Marshal(protocol.ItemDeployPayload{
+		Item:     item,
+		TargetID: targetID,
+	})
+	if err != nil {
+		t.Fatalf("marshal deploy payload: %v", err)
+	}
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  protocol.ActionItemDeploy,
+		Payload: deployBytes,
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  deviceHash,
+		Payload: innerMsg,
+	})
+}
+
+// giveHeldItem assigns a held item directly on a non-referee player. Used
+// in tests because the natural drop path is randomized through the
+// consequence chain.
+func giveHeldItem(t *testing.T, r *Room, deviceHash, item string) {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	player, ok := r.gameState.Players[deviceHash]
+	if !ok || player == nil {
+		t.Fatalf("giveHeldItem: player %q not found", deviceHash)
+	}
+	itemCopy := item
+	player.HeldItem = &itemCopy
+}
+
+func TestItemDeploy_NonTargetedSucceedsBroadcastsToAll(t *testing.T) {
+	r, cancel, serverConn1, serverConn2, serverConn3, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemShield)
+
+	sendItemDeploy(t, r, "host-hash", game.ItemShield, "")
+
+	for i, conn := range []*websocket.Conn{serverConn1, serverConn2, serverConn3} {
+		msg := readMessage(t, conn)
+		if msg.Action != protocol.ActionItemDeployed {
+			t.Errorf("conn %d: expected item.deployed, got %q", i, msg.Action)
+			continue
+		}
+		var payload protocol.ItemDeployedPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			t.Errorf("conn %d: unmarshal item.deployed: %v", i, err)
+			continue
+		}
+		if payload.Item != game.ItemShield {
+			t.Errorf("conn %d: expected item %q, got %q", i, game.ItemShield, payload.Item)
+		}
+		if payload.DeployerID != "host-hash" {
+			t.Errorf("conn %d: expected deployerId 'host-hash', got %q", i, payload.DeployerID)
+		}
+		if payload.TargetID != "" {
+			t.Errorf("conn %d: expected empty targetId for non-targeted item, got %q", i, payload.TargetID)
+		}
+	}
+
+	// Verify the item was actually consumed on the server.
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.gameState.Players["host-hash"].HeldItem != nil {
+		t.Error("expected HeldItem to be cleared after deploy")
+	}
+}
+
+func TestItemDeploy_TargetedSucceedsBroadcastsTarget(t *testing.T) {
+	r, cancel, serverConn1, _, serverConn3, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemBlueshell)
+
+	// Target player3 (slot 3, non-referee).
+	sendItemDeploy(t, r, "host-hash", game.ItemBlueshell, "player3")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionItemDeployed {
+		t.Fatalf("expected item.deployed, got %q", msg.Action)
+	}
+	var payload protocol.ItemDeployedPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.TargetID != "player3" {
+		t.Errorf("expected targetId 'player3', got %q", payload.TargetID)
+	}
+
+	// Drain target's broadcast too — proves the target receives the news.
+	targetMsg := readMessage(t, serverConn3)
+	if targetMsg.Action != protocol.ActionItemDeployed {
+		t.Errorf("target should receive item.deployed, got %q", targetMsg.Action)
+	}
+}
+
+func TestItemDeploy_NoItemHeldReturnsError(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// host-hash holds nothing — should get an error, not a fizzle.
+	sendItemDeploy(t, r, "host-hash", game.ItemShield, "")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if errPayload.Code != "NO_ITEM_HELD" {
+		t.Errorf("expected NO_ITEM_HELD, got %q", errPayload.Code)
+	}
+}
+
+func TestItemDeploy_RefereeRejected(t *testing.T) {
+	r, cancel, _, serverConn2, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	sendItemDeploy(t, r, refereeHash, game.ItemShield, "")
+
+	msg := readMessage(t, serverConn2)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if errPayload.Code != "REFEREE_CANNOT_DEPLOY" {
+		t.Errorf("expected REFEREE_CANNOT_DEPLOY, got %q", errPayload.Code)
+	}
+}
+
+func TestItemDeploy_NonPlayerReturnsError(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	// "ghost" is not in the room — should be rejected before any phase check.
+	sendItemDeploy(t, r, "ghost-hash", game.ItemShield, "")
+
+	// The ghost has no PlayerConn, so the error is sent via the lookup path
+	// — there's no connection to read it from. We instead verify that the
+	// real players receive nothing (no broadcast happened) by attempting a
+	// short read with a timeout.
+	readCtx, readCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer readCancel()
+	if _, _, err := serverConn1.Read(readCtx); err == nil {
+		t.Error("expected no broadcast for ghost deploy attempt, got a message")
+	}
+}
+
+func TestItemDeploy_TargetedWithoutTargetIDFizzles(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemBlueshell)
+
+	sendItemDeploy(t, r, "host-hash", game.ItemBlueshell, "")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionItemFizzled {
+		t.Fatalf("expected item.fizzled, got %q", msg.Action)
+	}
+	var payload protocol.ItemFizzledPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.Reason != "INVALID_TARGET" {
+		t.Errorf("expected INVALID_TARGET, got %q", payload.Reason)
+	}
+	// Item should NOT be consumed on a fizzle.
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.gameState.Players["host-hash"].HeldItem == nil {
+		t.Error("expected HeldItem to remain after a fizzle")
+	}
+}
+
+func TestItemDeploy_SelfTargetFizzles(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemScoreSteal)
+
+	// Self-target with a targeted item.
+	sendItemDeploy(t, r, "host-hash", game.ItemScoreSteal, "host-hash")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionItemFizzled {
+		t.Fatalf("expected item.fizzled, got %q", msg.Action)
+	}
+	var payload protocol.ItemFizzledPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.Reason != "INVALID_TARGET" {
+		t.Errorf("expected INVALID_TARGET for self-target, got %q", payload.Reason)
+	}
+}
+
+func TestItemDeploy_RefereeAsTargetFizzles(t *testing.T) {
+	r, cancel, serverConn1, _, _, refereeHash := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemScoreSteal)
+
+	sendItemDeploy(t, r, "host-hash", game.ItemScoreSteal, refereeHash)
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionItemFizzled {
+		t.Fatalf("expected item.fizzled, got %q", msg.Action)
+	}
+	var payload protocol.ItemFizzledPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.Reason != "INVALID_TARGET" {
+		t.Errorf("expected INVALID_TARGET for referee target, got %q", payload.Reason)
+	}
+}
+
+func TestItemDeploy_NonTargetedWithTargetIDStillSucceeds(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemShield)
+
+	// Send a stray targetId — server should strip it and succeed.
+	sendItemDeploy(t, r, "host-hash", game.ItemShield, "player3")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionItemDeployed {
+		t.Fatalf("expected item.deployed, got %q", msg.Action)
+	}
+	var payload protocol.ItemDeployedPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.TargetID != "" {
+		t.Errorf("expected stray targetId to be cleared, got %q", payload.TargetID)
+	}
+}
+
+func TestItemDeploy_ItemMismatchFizzlesItemConsumed(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemShield)
+
+	// Try to deploy a different item than what is held.
+	sendItemDeploy(t, r, "host-hash", game.ItemDoubleUp, "")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionItemFizzled {
+		t.Fatalf("expected item.fizzled, got %q", msg.Action)
+	}
+	var payload protocol.ItemFizzledPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.Reason != "ITEM_CONSUMED" {
+		t.Errorf("expected ITEM_CONSUMED, got %q", payload.Reason)
+	}
+}
+
+func TestItemDeploy_UnknownItemTypeReturnsError(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", "phantom_item")
+
+	sendItemDeploy(t, r, "host-hash", "phantom_item", "")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if errPayload.Code != "UNKNOWN_ITEM" {
+		t.Errorf("expected UNKNOWN_ITEM, got %q", errPayload.Code)
+	}
+}
+
+func TestItemDeploy_EmptyItemTypeReturnsError(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemShield)
+
+	// Send empty item type.
+	sendItemDeploy(t, r, "host-hash", "", "")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if errPayload.Code != "INVALID_PAYLOAD" {
+		t.Errorf("expected INVALID_PAYLOAD, got %q", errPayload.Code)
+	}
+}
+
+func TestItemDeploy_AnytimeNonShooterCanDeploy(t *testing.T) {
+	// player3 (slot 3) is NOT the current shooter on round 1 (host-hash is).
+	// They should still be able to deploy at any time.
+	r, cancel, _, _, serverConn3, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "player3", game.ItemShield)
+
+	sendItemDeploy(t, r, "player3", game.ItemShield, "")
+
+	msg := readMessage(t, serverConn3)
+	if msg.Action != protocol.ActionItemDeployed {
+		t.Fatalf("expected item.deployed for non-shooter deploy, got %q", msg.Action)
+	}
+}
+
+func TestItemDeploy_TargetDisconnectedFizzles(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemScoreSteal)
+
+	// Forcibly drop player3's connection from the room (simulate disconnect)
+	// while keeping them in gameState.Players (per Story 5.2 spec — players
+	// remain in game state during reconnect window).
+	r.mu.Lock()
+	if conn, ok := r.players["player3"]; ok {
+		conn.Close()
+		delete(r.players, "player3")
+	}
+	r.mu.Unlock()
+
+	sendItemDeploy(t, r, "host-hash", game.ItemScoreSteal, "player3")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionItemFizzled {
+		t.Fatalf("expected item.fizzled, got %q", msg.Action)
+	}
+	var payload protocol.ItemFizzledPayload
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload.Reason != "INVALID_TARGET" {
+		t.Errorf("expected INVALID_TARGET, got %q", payload.Reason)
+	}
+}
+
+func TestItemDeploy_GameNotPlayingReturnsError(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemShield)
+
+	// Force the game phase to ended.
+	r.mu.Lock()
+	r.gameState.GamePhase = game.PhaseEnded
+	r.mu.Unlock()
+
+	sendItemDeploy(t, r, "host-hash", game.ItemShield, "")
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if errPayload.Code != "GAME_NOT_PLAYING" {
+		t.Errorf("expected GAME_NOT_PLAYING, got %q", errPayload.Code)
+	}
+}
+
+func TestItemDeploy_UnknownItemActionReturnsError(t *testing.T) {
+	r, cancel, serverConn1, _, _, _ := setupStartedThreePlayerRoom(t)
+	defer cancel()
+
+	giveHeldItem(t, r, "host-hash", game.ItemShield)
+
+	// Send a bogus item.* action.
+	innerMsg, _ := json.Marshal(protocol.Message{
+		Action:  "item.bogus",
+		Payload: json.RawMessage(`{}`),
+	})
+	r.SendAction(Action{
+		Type:    "client_message",
+		Player:  "host-hash",
+		Payload: innerMsg,
+	})
+
+	msg := readMessage(t, serverConn1)
+	if msg.Action != protocol.ActionError {
+		t.Fatalf("expected error, got %q", msg.Action)
+	}
+	var errPayload protocol.ErrorPayload
+	if err := json.Unmarshal(msg.Payload, &errPayload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if errPayload.Code != "UNKNOWN_ACTION" {
+		t.Errorf("expected UNKNOWN_ACTION, got %q", errPayload.Code)
 	}
 }

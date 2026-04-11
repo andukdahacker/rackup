@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rackup/core/models/item.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
+import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
+import 'package:rackup/features/game/bloc/leaderboard_event.dart';
 import 'package:rackup/features/game/view/widgets/targeting_overlay.dart';
 
 import '../../../../helpers/helpers.dart';
@@ -23,42 +26,62 @@ void main() {
     requiresTarget: true,
   );
 
-  final testTargets = [
-    const TargetData(
+  // Three non-deployer, non-referee players for the targeting list.
+  const testEntries = [
+    LeaderboardEntry(
       deviceIdHash: 'p1',
       displayName: 'Alice',
       score: 15,
+      streak: 0,
+      streakLabel: '',
       rank: 1,
-      slot: 1,
     ),
-    const TargetData(
+    LeaderboardEntry(
       deviceIdHash: 'p2',
       displayName: 'Bob',
       score: 10,
+      streak: 0,
+      streakLabel: '',
       rank: 2,
-      slot: 2,
     ),
-    const TargetData(
+    LeaderboardEntry(
       deviceIdHash: 'p3',
       displayName: 'Charlie',
       score: 5,
+      streak: 0,
+      streakLabel: '',
       rank: 3,
-      slot: 3,
     ),
   ];
+
+  const testSlots = {'p1': 1, 'p2': 2, 'p3': 3, 'me': 4, 'ref': 5};
+
+  /// Wraps [child] with a `LeaderboardBloc` seeded with [entries].
+  Widget wrapWithLeaderboard(
+    Widget child, {
+    List<LeaderboardEntry> entries = testEntries,
+  }) {
+    final bloc = LeaderboardBloc()
+      ..add(LeaderboardRefreshed(entries: entries));
+    return BlocProvider<LeaderboardBloc>.value(value: bloc, child: child);
+  }
 
   group('TargetingOverlay', () {
     testWidgets('renders player list with names, ranks, scores',
         (tester) async {
       await tester.pumpApp(
-        Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () => showTargetingOverlay(
-              context: context,
-              item: scoreSteal,
-              targets: testTargets,
+        wrapWithLeaderboard(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showTargetingOverlay(
+                context: context,
+                item: scoreSteal,
+                localDeviceIdHash: 'me',
+                refereeDeviceIdHash: 'ref',
+                playerSlots: testSlots,
+              ),
+              child: const Text('Open'),
             ),
-            child: const Text('Open'),
           ),
         ),
       );
@@ -80,20 +103,23 @@ void main() {
     testWidgets('Blue Shell shows gold border on first-place row',
         (tester) async {
       await tester.pumpApp(
-        Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () => showTargetingOverlay(
-              context: context,
-              item: blueShell,
-              targets: testTargets,
+        wrapWithLeaderboard(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showTargetingOverlay(
+                context: context,
+                item: blueShell,
+                localDeviceIdHash: 'me',
+                refereeDeviceIdHash: 'ref',
+                playerSlots: testSlots,
+              ),
+              child: const Text('Open'),
             ),
-            child: const Text('Open'),
           ),
         ),
       );
 
       await tester.tap(find.text('Open'));
-      // Use pump instead of pumpAndSettle because the crosshair pulses.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -105,16 +131,20 @@ void main() {
       String? selectedTarget;
 
       await tester.pumpApp(
-        Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () async {
-              selectedTarget = await showTargetingOverlay(
-                context: context,
-                item: scoreSteal,
-                targets: testTargets,
-              );
-            },
-            child: const Text('Open'),
+        wrapWithLeaderboard(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                selectedTarget = await showTargetingOverlay(
+                  context: context,
+                  item: scoreSteal,
+                  localDeviceIdHash: 'me',
+                  refereeDeviceIdHash: 'ref',
+                  playerSlots: testSlots,
+                );
+              },
+              child: const Text('Open'),
+            ),
           ),
         ),
       );
@@ -132,16 +162,20 @@ void main() {
       String? selectedTarget = 'not-null';
 
       await tester.pumpApp(
-        Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () async {
-              selectedTarget = await showTargetingOverlay(
-                context: context,
-                item: scoreSteal,
-                targets: testTargets,
-              );
-            },
-            child: const Text('Open'),
+        wrapWithLeaderboard(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                selectedTarget = await showTargetingOverlay(
+                  context: context,
+                  item: scoreSteal,
+                  localDeviceIdHash: 'me',
+                  refereeDeviceIdHash: 'ref',
+                  playerSlots: testSlots,
+                );
+              },
+              child: const Text('Open'),
+            ),
           ),
         ),
       );
@@ -154,6 +188,89 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selectedTarget, isNull);
+    });
+
+    testWidgets('shows cancel button when no targets are available',
+        (tester) async {
+      String? result = 'not-null';
+
+      // Empty leaderboard → empty target list.
+      await tester.pumpApp(
+        wrapWithLeaderboard(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                result = await showTargetingOverlay(
+                  context: context,
+                  item: scoreSteal,
+                  localDeviceIdHash: 'me',
+                  refereeDeviceIdHash: 'ref',
+                  playerSlots: const {},
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+          entries: const [],
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No valid targets available.'), findsOneWidget);
+      expect(find.text('CANCEL'), findsOneWidget);
+
+      await tester.tap(find.text('CANCEL'));
+      await tester.pumpAndSettle();
+
+      expect(result, isNull);
+    });
+
+    testWidgets('refreshes targets when leaderboard updates while open',
+        (tester) async {
+      late LeaderboardBloc bloc;
+      bloc = LeaderboardBloc()
+        ..add(const LeaderboardRefreshed(entries: testEntries));
+
+      await tester.pumpApp(
+        BlocProvider<LeaderboardBloc>.value(
+          value: bloc,
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showTargetingOverlay(
+                context: context,
+                item: scoreSteal,
+                localDeviceIdHash: 'me',
+                refereeDeviceIdHash: 'ref',
+                playerSlots: testSlots,
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alice'), findsOneWidget);
+
+      // Push a new leaderboard with Alice removed.
+      bloc.add(const LeaderboardRefreshed(entries: [
+        LeaderboardEntry(
+          deviceIdHash: 'p2',
+          displayName: 'Bob',
+          score: 10,
+          streak: 0,
+          streakLabel: '',
+          rank: 1,
+        ),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alice'), findsNothing);
+      expect(find.text('Bob'), findsOneWidget);
     });
   });
 

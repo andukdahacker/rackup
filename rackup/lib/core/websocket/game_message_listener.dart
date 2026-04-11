@@ -12,9 +12,11 @@ import 'package:rackup/features/game/bloc/event_feed_state.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_deployment_events_cubit.dart';
 import 'package:rackup/features/game/bloc/item_event.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_event.dart';
+import 'package:rackup/features/game/bloc/leaderboard_state.dart';
 
 /// Listens to WebSocket messages and dispatches game events to [GameBloc]
 /// and [LeaderboardBloc].
@@ -29,6 +31,7 @@ class GameMessageListener {
     required LeaderboardBloc leaderboardBloc,
     required EventFeedCubit eventFeedCubit,
     required ItemBloc itemBloc,
+    required ItemDeploymentEventsCubit itemDeploymentEventsCubit,
     required String localDeviceIdHash,
     required SoundManager soundManager,
   }) : _subscription = webSocketCubit.messages.listen((message) {
@@ -38,6 +41,7 @@ class GameMessageListener {
             leaderboardBloc,
             eventFeedCubit,
             itemBloc,
+            itemDeploymentEventsCubit,
             localDeviceIdHash,
             soundManager,
           );
@@ -51,6 +55,7 @@ class GameMessageListener {
     LeaderboardBloc leaderboardBloc,
     EventFeedCubit eventFeedCubit,
     ItemBloc itemBloc,
+    ItemDeploymentEventsCubit itemDeploymentEventsCubit,
     String localDeviceIdHash,
     SoundManager soundManager,
   ) {
@@ -139,40 +144,78 @@ class GameMessageListener {
               payload.leaderboard.map(mapToLeaderboardEntry).toList();
 
           // Dispatch confirmation to ItemBloc for local player.
-          if (payload.deployerId == localDeviceIdHash) {
+          // Skip closed blocs (e.g., user navigated away mid-flight).
+          if (payload.deployerId == localDeviceIdHash && !itemBloc.isClosed) {
             itemBloc.add(const ItemDeployConfirmed());
           }
 
-          // Update leaderboard for all players.
-          leaderboardBloc.add(LeaderboardUpdated(
-            entries: leaderboardEntries,
-            shooterHash: payload.deployerId,
-            streakMilestone: false,
-            cascadeProfile: 'routine',
-          ));
+          // Refresh leaderboard rankings for all players. Use the
+          // dedicated `LeaderboardRefreshed` event so we do NOT misuse
+          // shooterHash/cascadeProfile/streakMilestone fields that drive
+          // turn-completion side effects (shuffle/streak sounds).
+          if (leaderboardEntries.isNotEmpty && !leaderboardBloc.isClosed) {
+            leaderboardBloc.add(
+              LeaderboardRefreshed(entries: leaderboardEntries),
+            );
+          }
+
+          // Notify all clients (sound listener subscribes here).
+          if (!itemDeploymentEventsCubit.isClosed) {
+            itemDeploymentEventsCubit.notifyDeployed(
+              itemType: payload.item,
+              deployerId: payload.deployerId,
+              targetId: payload.targetId,
+            );
+          }
 
           // Generate event feed entry for all players.
-          _generateItemDeployedEvent(
-            payload,
-            eventFeedCubit,
-          );
+          if (!eventFeedCubit.isClosed) {
+            _generateItemDeployedEvent(payload, eventFeedCubit);
+          }
 
         case Actions.itemFizzled:
           final payload =
               ItemFizzledPayload.fromJson(message.payload);
 
           // Dispatch rejection to ItemBloc (only received by deployer).
-          itemBloc.add(ItemDeployRejected(reason: payload.reason));
+          if (!itemBloc.isClosed) {
+            itemBloc.add(ItemDeployRejected(reason: payload.reason));
+          }
 
-          // Event feed entry — fun fizzle moment.
-          final itemMeta = Item.registry[payload.item];
-          final itemName = itemMeta?.displayName ?? payload.item;
-          eventFeedCubit.addEvent(EventFeedItem(
-            id: 'fizzle-${DateTime.now().microsecondsSinceEpoch}',
-            text: '$itemName fizzled!',
-            category: EventFeedCategory.item,
-            timestamp: DateTime.now(),
-          ));
+          // No-change leaderboard acknowledgment for visual consistency
+          // (Task 5.3). The ItemFizzledPayload itself does not carry
+          // leaderboard data, so we re-emit the bloc's current entries.
+          final currentLbState = leaderboardBloc.state;
+          if (currentLbState is LeaderboardActive &&
+              !leaderboardBloc.isClosed) {
+            leaderboardBloc.add(
+              LeaderboardRefreshed(entries: currentLbState.entries),
+            );
+          }
+
+          // Notify the audio/visual cubit. Currently a no-op for the
+          // sound layer (fizzle is visual-only) but kept for parity and
+          // future hooks.
+          if (!itemDeploymentEventsCubit.isClosed) {
+            itemDeploymentEventsCubit.notifyFizzled(
+              itemType: payload.item,
+              reason: payload.reason,
+            );
+          }
+
+          // Event feed entry — fun fizzle moment. Skip when no item is
+          // attached (e.g., a server-side validation fizzle with empty
+          // item field) to avoid the "  fizzled!" UX bug.
+          if (payload.item.isNotEmpty && !eventFeedCubit.isClosed) {
+            final itemMeta = Item.registry[payload.item];
+            final itemName = itemMeta?.displayName ?? payload.item;
+            eventFeedCubit.addEvent(EventFeedItem(
+              id: 'fizzle-${DateTime.now().microsecondsSinceEpoch}',
+              text: '$itemName fizzled!',
+              category: EventFeedCategory.itemFizzle,
+              timestamp: DateTime.now(),
+            ));
+          }
 
         case Actions.gameEnded:
           // Safety net: server sends game.game_ended after game.turn_complete.

@@ -1,5 +1,21 @@
 import 'package:flutter/material.dart';
 
+/// Item type string constants. Mirror server-side `game.Item*` constants
+/// (`rackup-server/internal/game/item_effect.go`). Keep both lists in sync
+/// when adding or renaming an item.
+abstract final class ItemTypes {
+  static const String blueShell = 'blue_shell';
+  static const String shield = 'shield';
+  static const String scoreSteal = 'score_steal';
+  static const String streakBreaker = 'streak_breaker';
+  static const String doubleUp = 'double_up';
+  static const String trapCard = 'trap_card';
+  static const String reverse = 'reverse';
+  static const String immunity = 'immunity';
+  static const String mulligan = 'mulligan';
+  static const String wildcard = 'wildcard';
+}
+
 /// Domain model for a power-up item.
 class Item {
   /// Creates an [Item].

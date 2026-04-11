@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rackup/core/models/item.dart';
@@ -103,7 +104,25 @@ class _ItemCardState extends State<ItemCard>
     final gameState = context.read<GameBloc>().state;
     final lbState = context.read<LeaderboardBloc>().state;
 
-    if (gameState is! gs.GameActive || lbState is! LeaderboardActive) return;
+    if (gameState is! gs.GameActive || lbState is! LeaderboardActive) {
+      _showTargetingError(
+        context,
+        'Cannot deploy item right now — game is not active.',
+      );
+      return;
+    }
+
+    // Get local device ID hash — required to filter the deployer out of the
+    // target list. If the identity service is missing from the provider tree,
+    // we surface a snackbar instead of silently swallowing the tap (P8).
+    final localHash = _getLocalDeviceIdHash();
+    if (localHash == null) {
+      _showTargetingError(
+        context,
+        'Cannot identify this device — please rejoin the game.',
+      );
+      return;
+    }
 
     // Build slot map from game players.
     final playerSlots = <String, int>{};
@@ -111,35 +130,41 @@ class _ItemCardState extends State<ItemCard>
       playerSlots[p.deviceIdHash] = p.slot;
     }
 
-    // Get local device ID hash — the deployer is the non-referee player
-    // whose item is being deployed. Use identity service or infer from
-    // game state by matching the ItemBloc's held item.
-    final localHash = _getLocalDeviceIdHash();
-    if (localHash == null) return;
-
-    final targets = buildTargetList(
-      entries: lbState.entries,
+    if (!context.mounted) return;
+    final selectedHash = await showTargetingOverlay(
+      context: context,
+      item: item,
       localDeviceIdHash: localHash,
       refereeDeviceIdHash: gameState.refereeDeviceIdHash,
       playerSlots: playerSlots,
     );
 
     if (!context.mounted) return;
-    final selectedHash = await showTargetingOverlay(
-      context: context,
-      item: item,
-      targets: targets,
-    );
-
-    if (selectedHash != null && context.mounted) {
+    // Re-check ItemBloc state — the bloc may have moved off ItemHeld while
+    // the modal was open (e.g., a server fizzle preempted the local tap).
+    final currentItemState = context.read<ItemBloc>().state;
+    if (selectedHash != null && currentItemState is ItemHeld) {
       context.read<ItemBloc>().add(DeployItem(targetId: selectedHash));
     }
   }
 
+  void _showTargetingError(BuildContext context, String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Reads the local device ID hash. Catches [ProviderNotFoundException]
+  /// specifically so genuine programming errors are not swallowed.
   String? _getLocalDeviceIdHash() {
     try {
       return context.read<DeviceIdentityService>().getHashedDeviceId();
-    } on Object {
+    } on ProviderNotFoundException catch (e) {
+      debugPrint('ItemCard: DeviceIdentityService not provided: $e');
       return null;
     }
   }
@@ -148,15 +173,21 @@ class _ItemCardState extends State<ItemCard>
   Widget build(BuildContext context) {
     return BlocListener<ItemBloc, ItemState>(
       listener: (context, state) {
+        // Any non-ItemHeld transition resets the press flag so a stale touch
+        // doesn't carry over into a new state.
+        if (state is! ItemHeld && _isPressed) {
+          setState(() => _isPressed = false);
+        }
         if (state is ItemHeld) {
           _playRevealAnimation();
           _hasAnimated = true;
         } else if (state is ItemEmpty) {
           _hasAnimated = false;
-          _isPressed = false;
         } else if (state is ItemDeploying) {
+          _fizzleController.reset();
           _deployController.forward(from: 0.0);
         } else if (state is ItemFizzled) {
+          _deployController.reset();
           _fizzleController.forward(from: 0.0);
         }
       },
@@ -179,16 +210,9 @@ class _ItemCardState extends State<ItemCard>
                         child: _buildHeldCard(context, item),
                       )
                     : _buildHeldCard(context, item),
-              ItemDeploying(:final item) =>
-                AnimatedBuilder(
-                  animation: _deployGlow,
-                  builder: (context, child) {
-                    return child!;
-                  },
-                  child: _DeployingCard(
-                    item: item,
-                    glowAnimation: _deployGlow,
-                  ),
+              ItemDeploying(:final item) => _DeployingCard(
+                  item: item,
+                  glowAnimation: _deployGlow,
                 ),
               ItemFizzled(:final item) =>
                 AnimatedBuilder(
@@ -258,7 +282,7 @@ class _HeldCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accentColor = item.accentColor;
     final borderColor = isPressed
-        ? const Color(0xFFFFD700)
+        ? RackUpColors.itemGold
         : RackUpColors.itemBlue;
     final glowAlpha = isPressed ? 0.35 : 0.18;
 
@@ -364,14 +388,14 @@ class _DeployingCard extends StatelessWidget {
             border: Border.all(
               color: Color.lerp(
                 RackUpColors.itemBlue,
-                const Color(0xFFFFD700),
+                RackUpColors.itemGold,
                 glowIntensity,
               )!,
               width: 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFFD700)
+                color: RackUpColors.itemGold
                     .withValues(alpha: 0.3 * glowIntensity),
                 blurRadius: 12,
               ),
@@ -387,7 +411,7 @@ class _DeployingCard extends StatelessWidget {
                 fontSize: 14,
                 color: Color.lerp(
                   RackUpColors.textPrimary,
-                  const Color(0xFFFFD700),
+                  RackUpColors.itemGold,
                   glowIntensity,
                 ),
               ),

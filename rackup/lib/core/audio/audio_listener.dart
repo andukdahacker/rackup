@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rackup/core/audio/sound_manager.dart';
-import 'package:rackup/features/game/bloc/item_bloc.dart';
-import 'package:rackup/features/game/bloc/item_state.dart';
+import 'package:rackup/features/game/bloc/item_deployment_events_cubit.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/bloc/leaderboard_state.dart';
 
@@ -12,7 +11,12 @@ import 'package:rackup/features/game/bloc/leaderboard_state.dart';
 ///
 /// This is the single place that decides "this event makes a noise".
 /// No bloc ever calls audio directly — all sound triggering goes through here.
-class AudioListener extends StatefulWidget {
+///
+/// Item deployment sounds listen to [ItemDeploymentEventsCubit] (broadcast
+/// to all clients), NOT [ItemBloc] (deployer only). This way the impact
+/// sound is audible on every device when an item deploys, matching the
+/// "social moment" intent of AC #3 / AC #5.
+class AudioListener extends StatelessWidget {
   /// Creates an [AudioListener].
   const AudioListener({
     required this.soundManager,
@@ -25,15 +29,6 @@ class AudioListener extends StatefulWidget {
 
   /// The child widget.
   final Widget child;
-
-  @override
-  State<AudioListener> createState() => _AudioListenerState();
-}
-
-class _AudioListenerState extends State<AudioListener> {
-  /// Cached item type from the last ItemDeploying state, so we can
-  /// pick the right impact sound on confirmation.
-  String? _deployingItemType;
 
   @override
   Widget build(BuildContext context) {
@@ -63,36 +58,34 @@ class _AudioListenerState extends State<AudioListener> {
             // Both flags can be true simultaneously (a streak milestone causes
             // a leaderboard shuffle). Play streakFire first, then shuffle.
             if (state.streakMilestone) {
-              unawaited(widget.soundManager.play(GameSound.streakFire).then((_) {
+              unawaited(soundManager.play(GameSound.streakFire).then((_) {
                 if (state.shuffleOccurred) {
-                  widget.soundManager.play(GameSound.leaderboardShuffle);
+                  soundManager.play(GameSound.leaderboardShuffle);
                 }
               }));
             } else if (state.shuffleOccurred) {
-              unawaited(widget.soundManager.play(GameSound.leaderboardShuffle));
+              unawaited(soundManager.play(GameSound.leaderboardShuffle));
             }
           },
         ),
-        BlocListener<ItemBloc, ItemState>(
+        BlocListener<ItemDeploymentEventsCubit, ItemDeploymentEventState>(
+          // Sequence number guarantees we react to repeated identical events.
+          listenWhen: (prev, curr) => curr.sequence != prev.sequence,
           listener: (context, state) {
-            if (state is ItemDeploying) {
-              // Cache the item type for the confirmation sound.
-              _deployingItemType = state.item.type;
-            } else if (state is ItemEmpty && _deployingItemType != null) {
-              // Server confirmed — play the appropriate impact sound.
-              final sound = _deployingItemType == 'blue_shell'
-                  ? GameSound.blueShellImpact
-                  : GameSound.itemDeployed;
-              unawaited(widget.soundManager.play(sound));
-              _deployingItemType = null;
-            } else if (state is ItemFizzled) {
-              // Fizzle — no sound, clear the cache.
-              _deployingItemType = null;
-            }
+            // Fizzled — visual-only per spec, no sound.
+            if (state.kind != ItemDeploymentEventKind.deployed) return;
+
+            // Optimistic-immediate playback: this listener fires the moment
+            // the server broadcasts `item.deployed` to every client, so the
+            // sound aligns with the impact animation across all devices.
+            final sound = state.itemType == 'blue_shell'
+                ? GameSound.blueShellImpact
+                : GameSound.itemDeployed;
+            unawaited(soundManager.play(sound));
           },
         ),
       ],
-      child: widget.child,
+      child: child,
     );
   }
 }

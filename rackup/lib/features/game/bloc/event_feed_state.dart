@@ -8,8 +8,12 @@ enum EventFeedCategory {
   /// Gold (#FFD700) — streak events.
   streak,
 
-  /// Blue (#3B82F6) — item events (Epic 5).
+  /// Blue (#3B82F6) — item events (Epic 5) — drops & successful deploys.
   item,
+
+  /// Muted lavender — fizzled item deployments. Visually distinct from
+  /// successful deploys so the user can read the feed at a glance.
+  itemFizzle,
 
   /// Red (#EF4444) — punishment events (Epic 4).
   punishment,

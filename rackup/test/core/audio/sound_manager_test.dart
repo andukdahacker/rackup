@@ -121,13 +121,21 @@ void main() {
 
     test('each GameSound maps to correct asset filename', () {
       expect(GameSound.blueShellImpact.filename, 'blue_shell_impact.mp3');
+      expect(GameSound.itemDrop.filename, 'item_drop.mp3');
       expect(
         GameSound.leaderboardShuffle.filename,
         'leaderboard_shuffle.mp3',
       );
       expect(GameSound.punishmentReveal.filename, 'punishment_reveal.mp3');
       expect(GameSound.streakFire.filename, 'streak_fire.mp3');
+      expect(GameSound.itemDeployed.filename, 'item_deployed.mp3');
       expect(GameSound.podiumFanfare.filename, 'podium_fanfare.mp3');
+    });
+
+    test('GameSound enum has the expected count of sounds', () {
+      // Bumping this number is intentional — confirms whoever adds a new
+      // sound also added an asset and updated this test.
+      expect(GameSound.values, hasLength(7));
     });
   });
 }

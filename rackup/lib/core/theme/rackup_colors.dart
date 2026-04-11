@@ -71,4 +71,12 @@ abstract final class RackUpColors {
 
   /// Slot 8 — Mint (#55E6C1).
   static const Color playerMint = Color(0xFF55E6C1);
+
+  // ── Item / Overlay ──
+  /// Item gold — used for deploy press, deploying flash, Blue Shell crosshair (#FFD700).
+  /// Alias of [streakGold] for semantic clarity in item code paths.
+  static const Color itemGold = streakGold;
+
+  /// Targeting overlay sheet background (alias of [tierLobby]).
+  static const Color overlayBackground = tierLobby;
 }

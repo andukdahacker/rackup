@@ -7,10 +7,19 @@ import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/game/bloc/item_event.dart';
 import 'package:rackup/features/game/bloc/item_state.dart';
 
-/// Timeout for server to respond to a deploy request.
-const _deployTimeout = Duration(seconds: 5);
-
 /// Manages held item state for the local player.
+///
+/// State transitions:
+///
+///     ItemEmpty → ItemHeld (drop)
+///     ItemHeld → ItemDeploying (user taps deploy)
+///     ItemDeploying → ItemEmpty (server confirms)
+///     ItemDeploying → ItemFizzled → ItemEmpty (server rejects)
+///
+/// There is intentionally no client-side deploy timeout. The server is the
+/// canonical source of truth — relying on a local timer creates state
+/// divergence (server confirms after timeout, client already showed fizzle).
+/// WebSocket reconnection is responsible for resyncing item state.
 class ItemBloc extends Bloc<ItemEvent, ItemState> {
   /// Creates an [ItemBloc].
   ItemBloc({required WebSocketCubit webSocketCubit})
@@ -24,11 +33,21 @@ class ItemBloc extends Bloc<ItemEvent, ItemState> {
   }
 
   final WebSocketCubit _webSocketCubit;
-  Timer? _deployTimer;
+
+  /// Item drop received during an in-flight fizzle window. Replayed when
+  /// the fizzle→empty transition completes so the player doesn't lose a
+  /// freshly-dropped item to a stale fizzle animation.
+  ItemReceived? _pendingDropAfterFizzle;
 
   void _onItemReceived(ItemReceived event, Emitter<ItemState> emit) {
     // Ignore new drops during active deployment.
     if (state is ItemDeploying) return;
+    // Defer drops received during the fizzle animation window — replayed
+    // by the fizzle handler once it transitions to ItemEmpty.
+    if (state is ItemFizzled) {
+      _pendingDropAfterFizzle = event;
+      return;
+    }
     emit(ItemHeld(item: event.item));
   }
 
@@ -41,14 +60,6 @@ class ItemBloc extends Bloc<ItemEvent, ItemState> {
     if (current is! ItemHeld) return;
 
     emit(ItemDeploying(item: current.item, targetId: event.targetId));
-
-    // Start timeout — if server never responds, treat as fizzle.
-    _deployTimer?.cancel();
-    _deployTimer = Timer(_deployTimeout, () {
-      if (!isClosed && state is ItemDeploying) {
-        add(const ItemDeployRejected(reason: 'TIMEOUT'));
-      }
-    });
 
     _webSocketCubit.sendMessage(
       Message(
@@ -65,7 +76,7 @@ class ItemBloc extends Bloc<ItemEvent, ItemState> {
     ItemDeployConfirmed event,
     Emitter<ItemState> emit,
   ) {
-    _deployTimer?.cancel();
+    if (state is! ItemDeploying) return;
     emit(const ItemEmpty());
   }
 
@@ -73,20 +84,19 @@ class ItemBloc extends Bloc<ItemEvent, ItemState> {
     ItemDeployRejected event,
     Emitter<ItemState> emit,
   ) async {
-    _deployTimer?.cancel();
     final current = state;
-    if (current is ItemDeploying) {
-      emit(ItemFizzled(item: current.item, reason: event.reason));
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      if (!isClosed) {
-        emit(const ItemEmpty());
-      }
-    }
-  }
+    if (current is! ItemDeploying) return;
 
-  @override
-  Future<void> close() {
-    _deployTimer?.cancel();
-    return super.close();
+    emit(ItemFizzled(item: current.item, reason: event.reason));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (isClosed || emit.isDone) return;
+
+    final pending = _pendingDropAfterFizzle;
+    _pendingDropAfterFizzle = null;
+    if (pending != null) {
+      emit(ItemHeld(item: pending.item));
+    } else {
+      emit(const ItemEmpty());
+    }
   }
 }

@@ -236,6 +236,27 @@ None — clean implementation with no blockers.
 ### Change Log
 
 - 2026-04-04: Implemented Story 5.2 — Item Deployment & Targeting (all 9 tasks)
+- 2026-04-11: Code review pass — addressed all High/Medium/Low findings.
+  - Added missing server `room_test.go` coverage for `handleItemAction`
+    (Task 9.1 follow-up — original commit shipped without these tests).
+  - Fixed audio sound timing: deploy impact now plays for ALL clients via
+    a new `ItemDeploymentEventsCubit` (was previously deployer-only and
+    fired on confirm instead of deploy).
+  - Removed undocumented client-side 5s deploy timeout (state divergence
+    risk; rely on WebSocket reconnect for resync).
+  - Switched `NO_ITEM_HELD` validation to error path per Task 2.2.
+  - Added connection-status check for targeted deploys (no ghost-target).
+  - Added empty-payload, unknown-item, unknown-action server validation.
+  - Targeting overlay now subscribes to `LeaderboardBloc` for live ranks.
+  - Surfaced silent-failure paths in `ItemCard` via snackbar feedback.
+  - Added `LeaderboardRefreshed` event so item flow does not misuse the
+    shooter/cascade fields driving turn-completion side effects.
+  - Added `EventFeedCategory.itemFizzle` for visual differentiation.
+  - Extracted gold + overlay background colors into `RackUpColors`.
+  - Added `Semantics` widget to `_TargetingRow` for screen readers.
+  - Cleaned up malformed shell-loop fragments in `settings.local.json`.
+  - Documented placeholder MP3 assets in `assets/sounds/README.md` so a
+    future audio designer knows replacements are required.
 
 ### File List
 

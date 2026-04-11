@@ -12,6 +12,7 @@ import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
 import 'package:rackup/features/game/bloc/game_bloc.dart';
 import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_deployment_events_cubit.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/game_page.dart';
 import 'package:rackup/features/home/view/home_page.dart';
@@ -83,6 +84,7 @@ class _RoomShellState extends State<_RoomShell> {
   late final GameBloc _gameBloc;
   late final LeaderboardBloc _leaderboardBloc;
   late final ItemBloc _itemBloc;
+  late final ItemDeploymentEventsCubit _itemDeploymentEventsCubit;
   late final EventFeedCubit _eventFeedCubit;
   late final SoundManager _soundManager;
   GameMessageListener? _gameMessageListener;
@@ -94,6 +96,7 @@ class _RoomShellState extends State<_RoomShell> {
     _gameBloc = GameBloc();
     _leaderboardBloc = LeaderboardBloc();
     _itemBloc = ItemBloc(webSocketCubit: _wsCubit);
+    _itemDeploymentEventsCubit = ItemDeploymentEventsCubit();
     _eventFeedCubit = EventFeedCubit();
     _soundManager = SoundManager();
     unawaited(_soundManager.init());
@@ -116,6 +119,7 @@ class _RoomShellState extends State<_RoomShell> {
         leaderboardBloc: _leaderboardBloc,
         eventFeedCubit: _eventFeedCubit,
         itemBloc: _itemBloc,
+        itemDeploymentEventsCubit: _itemDeploymentEventsCubit,
         localDeviceIdHash:
             context.read<DeviceIdentityService>().getHashedDeviceId(),
         soundManager: _soundManager,
@@ -131,6 +135,7 @@ class _RoomShellState extends State<_RoomShell> {
     _gameMessageListener?.dispose();
     unawaited(_soundManager.dispose());
     _eventFeedCubit.close();
+    _itemDeploymentEventsCubit.close();
     _itemBloc.close();
     _leaderboardBloc.close();
     _gameBloc.close();
@@ -148,6 +153,9 @@ class _RoomShellState extends State<_RoomShell> {
         BlocProvider<GameBloc>.value(value: _gameBloc),
         BlocProvider<LeaderboardBloc>.value(value: _leaderboardBloc),
         BlocProvider<ItemBloc>.value(value: _itemBloc),
+        BlocProvider<ItemDeploymentEventsCubit>.value(
+          value: _itemDeploymentEventsCubit,
+        ),
         BlocProvider<EventFeedCubit>.value(value: _eventFeedCubit),
       ],
       child: widget.child,

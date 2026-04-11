@@ -18,6 +18,7 @@ import 'package:rackup/features/game/bloc/game_event.dart';
 import 'package:rackup/features/game/bloc/game_state.dart';
 import 'package:rackup/features/game/bloc/event_feed_cubit.dart';
 import 'package:rackup/features/game/bloc/item_bloc.dart';
+import 'package:rackup/features/game/bloc/item_deployment_events_cubit.dart';
 import 'package:rackup/features/game/bloc/leaderboard_bloc.dart';
 import 'package:rackup/features/game/view/game_page.dart';
 import 'package:rackup/l10n/l10n.dart';
@@ -110,6 +111,9 @@ Widget _buildTestWidget({
           BlocProvider<ItemBloc>(
             create: (_) =>
                 ItemBloc(webSocketCubit: webSocketCubit),
+          ),
+          BlocProvider<ItemDeploymentEventsCubit>(
+            create: (_) => ItemDeploymentEventsCubit(),
           ),
           BlocProvider<EventFeedCubit>(create: (_) => EventFeedCubit()),
         ],

@@ -1,9 +1,9 @@
 import 'package:bloc_test/bloc_test.dart';
-import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rackup/core/models/item.dart';
+import 'package:rackup/core/protocol/messages.dart';
 import 'package:rackup/core/websocket/web_socket_cubit.dart';
 import 'package:rackup/features/game/bloc/item_bloc.dart';
 import 'package:rackup/features/game/bloc/item_event.dart';
@@ -11,7 +11,13 @@ import 'package:rackup/features/game/bloc/item_state.dart';
 
 class _MockWebSocketCubit extends Mock implements WebSocketCubit {}
 
+class _FakeMessage extends Fake implements Message {}
+
 void main() {
+  setUpAll(() {
+    registerFallbackValue(_FakeMessage());
+  });
+
   const shield = Item(
     type: 'shield',
     displayName: 'Shield',
@@ -31,6 +37,7 @@ void main() {
 
   setUp(() {
     mockWsCubit = _MockWebSocketCubit();
+    when(() => mockWsCubit.sendMessage(any())).thenAnswer((_) {});
   });
 
   ItemBloc buildBloc() => ItemBloc(webSocketCubit: mockWsCubit);
@@ -100,6 +107,14 @@ void main() {
     );
 
     blocTest<ItemBloc, ItemState>(
+      'ItemDeployConfirmed without prior Deploying is ignored',
+      build: buildBloc,
+      seed: () => const ItemEmpty(),
+      act: (bloc) => bloc.add(const ItemDeployConfirmed()),
+      expect: () => <ItemState>[],
+    );
+
+    blocTest<ItemBloc, ItemState>(
       'ItemDeployRejected emits ItemFizzled then ItemEmpty',
       build: buildBloc,
       seed: () => const ItemDeploying(item: shield),
@@ -114,6 +129,15 @@ void main() {
     );
 
     blocTest<ItemBloc, ItemState>(
+      'ItemDeployRejected without prior Deploying is ignored',
+      build: buildBloc,
+      seed: () => const ItemHeld(item: shield),
+      act: (bloc) =>
+          bloc.add(const ItemDeployRejected(reason: 'ITEM_CONSUMED')),
+      expect: () => <ItemState>[],
+    );
+
+    blocTest<ItemBloc, ItemState>(
       'ItemReceived during ItemDeploying is ignored',
       build: buildBloc,
       seed: () => const ItemDeploying(item: shield),
@@ -121,30 +145,21 @@ void main() {
       expect: () => <ItemState>[],
     );
 
-    test('deploy timeout triggers fizzle after 5 seconds', () {
-      fakeAsync((async) {
-        final bloc = buildBloc();
-        bloc.emit(const ItemHeld(item: shield));
-
-        final states = <ItemState>[];
-        bloc.stream.listen(states.add);
-
-        bloc.add(const DeployItem());
-        async.elapse(Duration.zero); // Process the event.
-
-        // Advance past the 5s timeout.
-        async.elapse(const Duration(seconds: 5));
-        // Advance past the 500ms fizzle→empty delay.
-        async.elapse(const Duration(milliseconds: 600));
-
-        expect(states, [
-          const ItemDeploying(item: shield),
-          const ItemFizzled(item: shield, reason: 'TIMEOUT'),
-          const ItemEmpty(),
-        ]);
-
-        bloc.close();
-      });
-    });
+    blocTest<ItemBloc, ItemState>(
+      'ItemReceived during ItemFizzled is replayed after fizzle window',
+      build: buildBloc,
+      seed: () => const ItemDeploying(item: shield),
+      act: (bloc) async {
+        bloc.add(const ItemDeployRejected(reason: 'INVALID_TARGET'));
+        // Wait briefly so the fizzle state is observed before the drop.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bloc.add(const ItemReceived(item: blueShell));
+      },
+      wait: const Duration(milliseconds: 700),
+      expect: () => [
+        const ItemFizzled(item: shield, reason: 'INVALID_TARGET'),
+        const ItemHeld(item: blueShell),
+      ],
+    );
   });
 }

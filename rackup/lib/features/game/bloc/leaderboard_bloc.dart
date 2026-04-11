@@ -8,6 +8,7 @@ class LeaderboardBloc extends Bloc<LeaderboardEvent, LeaderboardState> {
   /// Creates a [LeaderboardBloc].
   LeaderboardBloc() : super(const LeaderboardInitial()) {
     on<LeaderboardUpdated>(_onLeaderboardUpdated);
+    on<LeaderboardRefreshed>(_onLeaderboardRefreshed);
   }
 
   void _onLeaderboardUpdated(
@@ -29,6 +30,30 @@ class LeaderboardBloc extends Bloc<LeaderboardEvent, LeaderboardState> {
       streakMilestone: event.streakMilestone,
       cascadeProfile: event.cascadeProfile,
       shuffleOccurred: shuffleOccurred,
+    ));
+  }
+
+  /// Pure data refresh: replace entries without triggering shooter highlight,
+  /// streak milestone, shuffle animations, or cascade timing changes. Used
+  /// by item deployment / fizzle which need current rankings but should not
+  /// re-fire turn-completion side effects.
+  void _onLeaderboardRefreshed(
+    LeaderboardRefreshed event,
+    Emitter<LeaderboardState> emit,
+  ) {
+    final current = state;
+    final List<LeaderboardEntry> previousEntries = switch (current) {
+      LeaderboardActive(:final entries) => entries,
+      _ => const [],
+    };
+
+    emit(LeaderboardActive(
+      entries: event.entries,
+      previousEntries: previousEntries,
+      shooterHash: '',
+      streakMilestone: false,
+      cascadeProfile: 'routine',
+      shuffleOccurred: false,
     ));
   }
 }
